@@ -86,6 +86,7 @@ h1 span { color: var(--green); }
 
 label.field { display: block; margin-bottom: 16px; }
 label.field > .lbl { display: block; font-size: .8rem; color: var(--dim); margin-bottom: 5px; }
+.tip { border-bottom: 1px dotted rgba(0,255,160,.45); cursor: help; }
 .hint { font-size: .78rem; color: var(--faint); margin-top: 4px; }
 
 select, input[type=number] {
@@ -160,8 +161,7 @@ tr.best td:first-child { color: var(--green); font-weight: 700; }
 .se { color: var(--faint); font-size: .8rem; }
 .scroll { overflow-x: auto; }
 
-tr.dead td { color: var(--faint); }
-tr.dead td .pos, tr.dead td .neg { color: var(--faint); }
+tr.dead td { color: var(--dim); }
 .deadtag {
   font-family: 'Share Tech Mono', monospace;
   font-size: 8px; letter-spacing: .14em; text-transform: uppercase;
@@ -205,7 +205,7 @@ footer {
   <h1>Oh <span>Hell</span></h1>
   <p class="tagline">Enter a real hand and this simulates the rest of the deal tens of thousands of times,
   plays it out under Vienna scoring with a hooked dealer, scores every seat, and reports what each bid is
-  worth in dollars against the table mean.</p>
+  worth against the table mean.</p>
 
   <div class="rule"></div>
 
@@ -245,13 +245,10 @@ footer {
         <div style="display:flex;gap:9px;flex-wrap:wrap" id="priorRow"></div>
       </label>
       <label class="field">
-        <span class="lbl">Dollars per point above the table mean</span>
-        <input type="number" id="rate" step="0.05" value="1">
-      </label>
-      <label class="field">
-        <span class="lbl">Opponent bidding aggression</span>
-        <input type="range" id="agg" min="0.7" max="1.3" step="0.05" value="1">
-        <span class="hint" id="aggHint">1.00&times; the model's trick estimate</span>
+        <span class="lbl"><span class="tip" title="Scales how boldly the seats behind you bid. Bids ahead of you are used exactly as typed, so this does nothing when you are the dealer and very little when only one seat is left to bid. Raising it makes those seats claim more tricks, which means they bust more often and pull the table mean down under you. Tune it until the model check under the results matches how your group actually bids.">Opponent bidding aggression</span></span>
+        <input type="range" id="agg" min="0.7" max="1.3" step="0.05" value="1"
+               title="Scales how boldly the seats behind you bid. Bids ahead of you are used exactly as typed, so this does nothing when you are the dealer and very little when only one seat is left to bid. Raising it makes those seats claim more tricks, which means they bust more often and pull the table mean down under you. Tune it until the model check under the results matches how your group actually bids.">
+        <span class="hint" id="aggHint">1.00&times; hand strength, for the seats behind you</span>
       </label>
     </div>
 
@@ -285,7 +282,7 @@ footer {
     <div class="scroll">
       <table>
         <thead><tr>
-          <th>Bid</th><th>EV in dollars</th><th>Points vs mean</th>
+          <th>Bid</th><th>Points vs the table mean</th>
           <th>Raw points</th><th>Makes it</th><th>Tricks taken</th>
         </tr></thead>
         <tbody id="tbody"></tbody>
@@ -590,9 +587,9 @@ function buildPrior(){
   }
 }
 
-$("rate").oninput = () => { if(results) render(); };
-
-$("agg").oninput = e => { $("aggHint").textContent = (+e.target.value).toFixed(2)+"\u00d7 the model's trick estimate"; };
+$("agg").oninput = e => {
+  $("aggHint").textContent = (+e.target.value).toFixed(2)+"\u00d7 hand strength, for the seats behind you";
+};
 
 function refresh(){
   const n=hand.length, P=+$("players").value;
@@ -619,7 +616,7 @@ $("run").onclick = () => {
   const iterations=+$("iters").value;
   const S=initSim({
     hand: hand.slice().sort((a,b)=>a-b), players:P, seat, trump,
-    priorBids:prior, rate:+$("rate").value, iterations,
+    priorBids:prior, iterations,
     aggression:+$("agg").value, seed:(+$("seed").value)|0
   });
   running=true; chartBid=null; $("results").style.display="none"; $("run").disabled=true;
@@ -635,11 +632,6 @@ $("run").onclick = () => {
   setTimeout(step,0);
 };
 
-function money(v){
-  const sign = v>=0 ? "+" : "\u2212";
-  return sign+"$"+Math.abs(v).toFixed(2);
-}
-
 function render(){
   $("results").style.display="block";
   $("bestBid").textContent=results.best;
@@ -650,14 +642,13 @@ function render(){
   for(const r of results.rows){
     const tr=document.createElement("tr");
     if(r.bid===results.best) tr.className="best";
-    const rate = +$("rate").value;
-    const dollars = r.delta * rate;
     const dead = r.makePct < 0.05;
     if(dead) tr.className = (tr.className?tr.className+" ":"")+"dead";
     tr.innerHTML =
-      "<td>"+r.bid+(dead?' <span class="deadtag">can\'t be made</span>':"")+"</td>"+
-      '<td class="'+(dead?"":(dollars>=0?"pos":"neg"))+'">'+money(dollars)+' <span class="se">\u00b1'+(1.96*r.se*rate).toFixed(2)+"</span></td>"+
-      "<td>"+(r.delta>=0?"+":"\u2212")+Math.abs(r.delta).toFixed(2)+"</td>"+
+      "<td>"+r.bid+(dead?' <span class="deadtag" title="A legal bid. This hand just never takes that many tricks, so it always busts.">always busts</span>':"")+"</td>"+
+      '<td class="'+(dead?"":(r.delta>=0?"pos":"neg"))+'">'
+        +(r.delta>=0?"+":"\u2212")+Math.abs(r.delta).toFixed(2)
+        +' <span class="se">\u00b1'+(1.96*r.se).toFixed(2)+"</span></td>"+
       "<td>"+r.points.toFixed(2)+"</td>"+
       "<td>"+r.makePct.toFixed(1)+"%</td>"+
       "<td>"+r.avgTricks.toFixed(2)+"</td>";
