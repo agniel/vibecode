@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oh Hell · Bid Calculator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #040d14;
+  --panel:   rgba(0,255,160,.035);
+  --border:  rgba(0,255,160,.14);
+  --green:   #00ffa0;
+  --cyan:    #00e5ff;
+  --red:     #ff6b6b;
+  --text:    #c8e0f0;
+  --dim:     rgba(160,210,255,.55);
+  --faint:   rgba(160,210,255,.32);
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  min-height: 100%;
+}
+
+.page { max-width: 1000px; margin: 0 auto; padding: 40px 24px 80px; }
+
+.back {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--faint); text-decoration: none;
+}
+.back:hover { color: var(--green); }
+
+.badge {
+  display: inline-block;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--green);
+  border: 1px solid rgba(0,255,160,.30);
+  padding: 3px 10px; border-radius: 2px;
+  margin: 24px 0 16px;
+}
+
+h1 {
+  font-size: clamp(2.2rem, 6vw, 3.6rem);
+  font-weight: 700; letter-spacing: .04em; line-height: 1;
+  color: #e8f4ff; text-shadow: 0 0 60px rgba(0,255,160,.15);
+}
+h1 span { color: var(--green); }
+
+.tagline { margin-top: 14px; font-weight: 300; color: var(--dim); max-width: 60ch; }
+
+.rule {
+  height: 1px; margin: 36px 0 32px;
+  background: linear-gradient(90deg, transparent, var(--border) 15%, var(--border) 85%, transparent);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 22px 20px;
+  margin-bottom: 20px;
+}
+
+.panel-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+}
+
+.eyebrow {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: .20em; text-transform: uppercase;
+  color: var(--faint);
+}
+
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px,1fr)); gap: 20px; }
+
+label.field { display: block; margin-bottom: 16px; }
+label.field > .lbl { display: block; font-size: .8rem; color: var(--dim); margin-bottom: 5px; }
+.hint { font-size: .78rem; color: var(--faint); margin-top: 4px; }
+
+select, input[type=number] {
+  width: 100%; padding: 7px 9px;
+  background: rgba(0,0,0,.35);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif; font-size: .95rem;
+}
+input[type=range] { width: 100%; accent-color: var(--green); }
+select:focus, input:focus { outline: 2px solid rgba(0,255,160,.45); outline-offset: 1px; }
+
+/* card picker */
+.deck { overflow-x: auto; }
+.deck-inner { min-width: 620px; }
+.row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+.suitmark { width: 20px; font-size: 1.05rem; }
+.s-red { color: var(--red); }
+.s-blk { color: #dce8f2; }
+
+.ct {
+  width: 42px; height: 36px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--faint);
+  font-family: 'Rajdhani', sans-serif; font-size: .95rem; font-weight: 600;
+  cursor: pointer; transition: background .12s, color .12s, border-color .12s;
+}
+.ct:hover { border-color: rgba(0,255,160,.4); color: var(--text); }
+.ct.on { background: #eef5f9; border-color: #eef5f9; color: #0b1a14; }
+.ct.on.red { color: #b3282d; }
+
+.hand { margin-top: 14px; font-size: 1.15rem; letter-spacing: .06em; min-height: 1.6em; }
+.hand .c { margin-right: 10px; }
+
+.suitbtn {
+  min-width: 44px; height: 36px; padding: 0 10px;
+  background: transparent; border: 1px solid var(--border); border-radius: 3px;
+  color: var(--faint); font-size: 1.05rem; cursor: pointer;
+}
+.suitbtn.on { background: #eef5f9; border-color: #eef5f9; color: #0b1a14; }
+.suitbtn.on.red { color: #b3282d; }
+
+button.go {
+  width: 100%; padding: 11px;
+  background: rgba(0,255,160,.13);
+  border: 1px solid rgba(0,255,160,.34);
+  border-radius: 3px;
+  color: var(--green);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: .9rem; font-weight: 700; letter-spacing: .10em; text-transform: uppercase;
+  cursor: pointer; transition: background .15s;
+}
+button.go:hover:not(:disabled) { background: rgba(0,255,160,.24); }
+button.go:disabled { opacity: .45; cursor: default; }
+
+.err { font-size: .82rem; color: var(--faint); margin-top: 8px; }
+
+table { width: 100%; border-collapse: collapse; font-size: .95rem; min-width: 540px; }
+th {
+  text-align: left; font-weight: 400; padding: 6px 10px 6px 0;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--faint);
+}
+td { padding: 9px 10px 9px 0; border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+tr.best td { background: rgba(0,255,160,.07); }
+tr.best td:first-child { color: var(--green); font-weight: 700; }
+.pos { color: var(--green); }
+.neg { color: var(--red); }
+.se { color: var(--faint); font-size: .8rem; }
+.scroll { overflow-x: auto; }
+
+.bidpick { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
+.bidpick button {
+  width: 32px; height: 28px;
+  background: transparent; border: 1px solid var(--border); border-radius: 3px;
+  color: var(--faint); font-family: 'Rajdhani', sans-serif; font-size: .95rem; cursor: pointer;
+}
+.bidpick button.on { background: #eef5f9; border-color: #eef5f9; color: #0b1a14; font-weight: 700; }
+
+.bars { display: flex; align-items: flex-end; gap: 8px; height: 130px; }
+.bar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.bar .v { font-size: .78rem; color: var(--faint); margin-bottom: 4px; }
+.bar .b { width: 100%; background: var(--border); border-radius: 2px 2px 0 0; }
+.bar.hit .b { background: var(--green); }
+.bar.hit .v { color: var(--green); }
+.bar .t { font-size: .82rem; color: var(--faint); margin-top: 5px; }
+
+.diag { border-top: 1px solid var(--border); margin-top: 22px; padding-top: 14px; font-size: .85rem; color: var(--faint); }
+
+footer {
+  margin-top: 56px; text-align: center;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; letter-spacing: .12em; color: rgba(100,160,200,.30);
+}
+
+@media (max-width: 520px) { .page { padding: 24px 14px 60px; } .panel { padding: 18px 14px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <a class="back" href="index.html">&#8592; All tools</a>
+  <div class="badge">Card Game Analytics</div>
+  <h1>Oh <span>Hell</span></h1>
+  <p class="tagline">Enter a real hand and this simulates the rest of the deal tens of thousands of times,
+  plays it out under Vienna scoring with a hooked dealer, scores every seat, and reports what each bid is
+  worth in dollars against the table mean.</p>
+
+  <div class="rule"></div>
+
+  <!-- hand -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="eyebrow">Your hand</div>
+      <div class="eyebrow" id="handCount">no cards selected</div>
+    </div>
+    <div class="deck"><div class="deck-inner" id="deck"></div></div>
+    <div class="hand" id="handOut"></div>
+  </div>
+
+  <!-- setup -->
+  <div class="grid3">
+    <div class="panel">
+      <div class="eyebrow" style="margin-bottom:14px">Table</div>
+      <label class="field">
+        <span class="lbl">Trump</span>
+        <div style="display:flex;gap:5px;flex-wrap:wrap" id="trumpRow"></div>
+      </label>
+      <label class="field">
+        <span class="lbl">Players</span>
+        <select id="players"></select>
+      </label>
+      <label class="field">
+        <span class="lbl">Your seat in the bidding</span>
+        <select id="seat"></select>
+        <span class="hint">Seat 1 sits left of the dealer and bids first.</span>
+      </label>
+    </div>
+
+    <div class="panel">
+      <div class="eyebrow" style="margin-bottom:14px">Bidding</div>
+      <label class="field">
+        <span class="lbl">Bids already made ahead of you</span>
+        <div style="display:flex;gap:9px;flex-wrap:wrap" id="priorRow"></div>
+      </label>
+      <label class="field">
+        <span class="lbl">Dollars per point above the table mean</span>
+        <input type="number" id="rate" step="0.05" value="1">
+      </label>
+      <label class="field">
+        <span class="lbl">Opponent bidding aggression</span>
+        <input type="range" id="agg" min="0.7" max="1.3" step="0.05" value="1">
+        <span class="hint" id="aggHint">1.00&times; the model's trick estimate</span>
+      </label>
+    </div>
+
+    <div class="panel">
+      <div class="eyebrow" style="margin-bottom:14px">Run</div>
+      <label class="field">
+        <span class="lbl">Simulated deals</span>
+        <select id="iters">
+          <option value="5000">5,000</option>
+          <option value="20000" selected>20,000</option>
+          <option value="50000">50,000</option>
+          <option value="100000">100,000</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="lbl">Random seed</span>
+        <input type="number" id="seed" value="12345">
+        <span class="hint">Same seed and inputs reproduce the same answer.</span>
+      </label>
+      <button class="go" id="run">Calculate bid values</button>
+      <div class="err" id="err"></div>
+    </div>
+  </div>
+
+  <!-- results -->
+  <div class="panel" id="results" style="display:none">
+    <div class="panel-head">
+      <div><span class="eyebrow">Best bid</span> <span id="bestBid" style="font-size:1.5rem;font-weight:700;color:var(--green);margin-left:8px"></span></div>
+      <div class="eyebrow" id="runMeta"></div>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th>Bid</th><th>EV in dollars</th><th>Points vs mean</th>
+          <th>Raw points</th><th>Makes it</th><th>Tricks taken</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:26px">
+      <div class="bidpick"><span class="eyebrow">Tricks you take if you bid</span><span id="bidPick"></span><span class="eyebrow" id="pickMeta"></span></div>
+      <div class="bars" id="bars"></div>
+      <div class="hint" style="margin-top:8px">Percent of deals, by tricks taken. Bars are scaled to the tallest one.</div>
+    </div>
+    <div class="diag" id="diag"></div>
+  </div>
+
+  <footer>OH HELL &middot; MONTE CARLO BID EV &middot; VANILLA JS, NO DEPENDENCIES</footer>
+</div>
+
+<script>
+/* ===== cards: card = suit*13 + rankIndex, rankIndex 0..12 => rank 2..14 ===== */
+const GLYPH = ["\u2660","\u2665","\u2666","\u2663"];
+const RANKL = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
+const SHOW  = [12,11,10,9,8,7,6,5,4,3,2,1,0];
+const suitOf = c => (c/13)|0;
+const rankOf = c => (c%13)+2;
+const isRed  = s => s===1 || s===2;
+
+function mulberry32(a){return function(){a|=0;a=(a+0x6d2b79f5)|0;let t=Math.imul(a^(a>>>15),1|a);
+  t=(t+Math.imul(t^(t>>>7),61|t))^t;return ((t^(t>>>14))>>>0)/4294967296;};}
+
+/* ===== opponent bid model ===== */
+function estimateTricks(hand, trump, n, P){
+  const by=[[],[],[],[]];
+  for(const c of hand) by[suitOf(c)].push(rankOf(c));
+  let est=0;
+  const tr = trump>=0 ? by[trump].slice().sort((a,b)=>b-a) : [];
+  for(const r of tr){
+    if(r===14)est+=.95; else if(r===13)est+=.85; else if(r===12)est+=.7;
+    else if(r===11)est+=.55; else if(r===10)est+=.4; else est+=.2;
+  }
+  for(let s=0;s<4;s++){
+    if(s===trump) continue;
+    const cards=by[s], len=cards.length;
+    for(const r of cards){
+      if(r===14)est+=.9; else if(r===13)est+= len>=2?.6:.3;
+      else if(r===12)est+= len>=3?.35:.12; else if(r===11)est+= len>=4?.15:.05; else est+=.02;
+    }
+    if(trump>=0 && tr.length>0 && n>2){
+      if(len===0) est += Math.min(tr.length,2)*.35;
+      else if(len===1) est += Math.min(tr.length,2)*.15;
+    }
+  }
+  est *= 1 - 0.04*(P-4);
+  return Math.max(0, Math.min(n, est));
+}
+
+/* ===== play policy ===== */
+function beats(c,w,trump){
+  if(w<0) return true;
+  const ct=suitOf(c)===trump, wt=suitOf(w)===trump;
+  if(ct&&!wt) return true;
+  if(!ct&&wt) return false;
+  if(suitOf(c)!==suitOf(w)) return false;
+  return rankOf(c)>rankOf(w);
+}
+const skey=(c,trump)=>(suitOf(c)===trump?100:0)+rankOf(c);
+
+function chooseCard(hand, ledSuit, winCard, trump, needed, behind){
+  const left = hand.length;
+  const shed = Math.max(0, left - Math.max(needed,0));
+  let legal = hand;
+  if(ledSuit>=0){ const f=hand.filter(c=>suitOf(c)===ledSuit); if(f.length) legal=f; }
+
+  // weakest `shed` cards are the ones we intend to lose with - never win with them
+  const sorted = hand.slice().sort((a,b)=>skey(a,trump)-skey(b,trump));
+  const dump = new Set(sorted.slice(0, shed));
+
+  if(ledSuit<0){
+    if(needed<=0 || shed>0){
+      const p = legal.filter(c=>dump.has(c));
+      const pool = p.length ? p : legal;
+      const k = c => rankOf(c) + (suitOf(c)===trump ? 20 : 0);
+      return pool.reduce((a,b)=> k(b)<k(a) ? b : a);
+    }
+    const t = legal.filter(c=>suitOf(c)===trump);
+    const pool = t.length ? t : legal;
+    return pool.reduce((a,b)=> rankOf(b)>rankOf(a) ? b : a);
+  }
+
+  const winners = legal.filter(c=>beats(c,winCard,trump));
+  const keepers = winners.filter(c=>!dump.has(c));
+  if(needed>0 && keepers.length){
+    const ruffing = ledSuit!==trump && suitOf(winCard)!==trump;
+    if(ruffing && behind>0 && keepers.some(c=>suitOf(c)===trump)){
+      const t = keepers.filter(c=>suitOf(c)===trump);
+      return t.reduce((a,b)=> rankOf(b)>rankOf(a) ? b : a);   // ruff high, survive an overruff
+    }
+    const k = c => rankOf(c) + (suitOf(c)===trump && ledSuit!==trump ? 100 : 0);
+    return keepers.reduce((a,b)=> k(b)<k(a) ? b : a);
+  }
+  const losers = legal.filter(c=>!beats(c,winCard,trump));
+  if(losers.length){
+    const p = losers.filter(c=>dump.has(c));
+    const pool = p.length ? p : losers;
+    return pool.reduce((a,b)=> rankOf(b)>rankOf(a) ? b : a);
+  }
+  if(needed>0 && winners.length){
+    const k = c => rankOf(c) + (suitOf(c)===trump && ledSuit!==trump ? 100 : 0);
+    return winners.reduce((a,b)=> k(b)<k(a) ? b : a);
+  }
+  return legal.reduce((a,b)=> rankOf(b)<rankOf(a) ? b : a);
+}
+
+function playHand(hands,bids,trump,P,n){
+  const h=hands.map(x=>x.slice()), won=new Array(P).fill(0);
+  let leader=0;
+  for(let t=0;t<n;t++){
+    let ledSuit=-1, winCard=-1, winner=leader;
+    for(let i=0;i<P;i++){
+      const p=(leader+i)%P;
+      const card=chooseCard(h[p],ledSuit,winCard,trump,bids[p]-won[p],P-1-i);
+      h[p].splice(h[p].indexOf(card),1);
+      if(i===0) ledSuit=suitOf(card);
+      if(beats(card,winCard,trump)){ winCard=card; winner=p; }
+    }
+    won[winner]++; leader=winner;
+  }
+  return won;
+}
+
+/* Vienna: make a nonzero bid = 10 + tricks; make zero = 5 + tricks in round; miss = 1/trick */
+const vienna = (bid,won,n) => bid===won ? (bid===0 ? 5+n : 10+won) : won;
+
+/* ===== simulation ===== */
+function initSim(cfg){
+  const n=cfg.hand.length, P=cfg.players;
+  const inHand=new Set(cfg.hand), pool=[];
+  for(let c=0;c<52;c++) if(!inHand.has(c)) pool.push(c);
+  const isDealer = cfg.seat===P-1;
+  const priorSum = cfg.priorBids.reduce((a,b)=>a+b,0);
+  const banned = isDealer ? n-priorSum : -1;
+  const cands=[];
+  for(let b=0;b<=n;b++) if(b!==banned) cands.push(b);
+  return { cfg,n,P,pool,cands,banned, rng:mulberry32(cfg.seed>>>0), done:0,
+    acc: cands.map(()=>({pts:0,d:0,d2:0,makes:0,tricks:0,hist:new Array(n+1).fill(0),seats:new Array(P).fill(0)})),
+    diag:{oppMakes:0,oppHands:0,bidTotal:0} };
+}
+
+function runChunk(S,count){
+  const {cfg,n,P,pool,cands,rng}=S, nOpp=P-1;
+  for(let it=0; it<count && S.done<cfg.iterations; it++, S.done++){
+    for(let i=pool.length-1;i>0;i--){ const j=(rng()*(i+1))|0; const t=pool[i]; pool[i]=pool[j]; pool[j]=t; }
+    const opp=[]; for(let k=0;k<nOpp;k++) opp.push(pool.slice(k*n,k*n+n));
+    const hands=new Array(P); let oi=0;
+    for(let s=0;s<P;s++) hands[s] = (s===cfg.seat) ? cfg.hand : opp[oi++];
+
+    const base=new Array(P).fill(0);
+    for(let s=0;s<P;s++){
+      if(s===cfg.seat) continue;
+      if(s<cfg.seat){ base[s]=cfg.priorBids[s]; }
+      else {
+        const e=estimateTricks(hands[s],cfg.trump,n,P)*cfg.aggression;
+        const fl=Math.floor(e);
+        base[s]=Math.max(0,Math.min(n, rng()<e-fl ? fl+1 : fl));
+      }
+    }
+
+    for(let ci=0; ci<cands.length; ci++){
+      const bids=base.slice(); bids[cfg.seat]=cands[ci];
+      const dealer=P-1;
+      if(dealer!==cfg.seat){
+        let others=0; for(let s=0;s<P;s++) if(s!==dealer) others+=bids[s];
+        if(bids[dealer]===n-others){
+          const e=estimateTricks(hands[dealer],cfg.trump,n,P);
+          let alt = e>bids[dealer] ? bids[dealer]+1 : bids[dealer]-1;
+          if(alt<0) alt=bids[dealer]+1;
+          if(alt>n) alt=bids[dealer]-1;
+          bids[dealer]=alt;
+        }
+      }
+      const won=playHand(hands,bids,cfg.trump,P,n);
+      const sc=new Array(P); let tot=0;
+      for(let s=0;s<P;s++){ sc[s]=vienna(bids[s],won[s],n); tot+=sc[s]; }
+      const d = sc[cfg.seat] - tot/P;
+      const a=S.acc[ci];
+      a.pts+=sc[cfg.seat]; a.d+=d; a.d2+=d*d; a.tricks+=won[cfg.seat]; a.hist[won[cfg.seat]]++;
+      if(won[cfg.seat]===cands[ci]) a.makes++;
+      for(let s=0;s<P;s++) a.seats[s]+=sc[s];
+      if(ci===0){
+        for(let s=0;s<P;s++){ if(s===cfg.seat) continue; S.diag.oppHands++; if(won[s]===bids[s]) S.diag.oppMakes++; }
+        S.diag.bidTotal += bids.reduce((x,y)=>x+y,0);
+      }
+    }
+  }
+}
+
+function finalize(S){
+  const N=S.done;
+  const rows=S.cands.map((bid,i)=>{
+    const a=S.acc[i], m=a.d/N, v=a.d2/N-m*m;
+    return { bid, points:a.pts/N, delta:m, dollars:m*S.cfg.rate,
+      se: Math.sqrt(Math.max(v,0)/N)*S.cfg.rate,
+      makePct:(a.makes/N)*100, avgTricks:a.tricks/N,
+      hist:a.hist.map(h=>h/N), seats:a.seats.map(x=>x/N) };
+  });
+  const best=rows.reduce((a,b)=> b.delta>a.delta ? b : a);
+  return { rows, best:best.bid, n:S.n, banned:S.banned, iterations:N,
+    diag:{ oppMakePct:(S.diag.oppMakes/Math.max(S.diag.oppHands,1))*100, avgBidTotal:S.diag.bidTotal/N } };
+}
+
+/* ===== UI ===== */
+const $ = id => document.getElementById(id);
+let hand = [], trump = 0, results = null, chartBid = null, running = false;
+
+// deck
+(function buildDeck(){
+  const d=$("deck");
+  for(let s=0;s<4;s++){
+    const row=document.createElement("div"); row.className="row";
+    const m=document.createElement("div");
+    m.className="suitmark "+(isRed(s)?"s-red":"s-blk"); m.textContent=GLYPH[s];
+    row.appendChild(m);
+    for(const ri of SHOW){
+      const c=s*13+ri;
+      const b=document.createElement("button");
+      b.className="ct"+(isRed(s)?" red":""); b.textContent=RANKL[ri]; b.dataset.card=c;
+      b.setAttribute("aria-label", RANKL[ri]+" of "+["spades","hearts","diamonds","clubs"][s]);
+      b.onclick=()=>{
+        const i=hand.indexOf(c);
+        if(i>=0) hand.splice(i,1); else hand.push(c);
+        results=null; $("results").style.display="none";
+        b.classList.toggle("on"); refresh();
+      };
+      row.appendChild(b);
+    }
+    d.appendChild(row);
+  }
+})();
+
+// trump
+(function buildTrump(){
+  const r=$("trumpRow");
+  for(let s=0;s<4;s++){
+    const b=document.createElement("button");
+    b.className="suitbtn"+(isRed(s)?" red":"")+(s===trump?" on":"");
+    b.textContent=GLYPH[s]; b.title=["Spades","Hearts","Diamonds","Clubs"][s];
+    b.onclick=()=>{ trump=s; results=null; $("results").style.display="none"; syncTrump(); };
+    r.appendChild(b);
+  }
+  const nb=document.createElement("button");
+  nb.className="suitbtn"; nb.textContent="None"; nb.dataset.none="1";
+  nb.onclick=()=>{ trump=-1; results=null; $("results").style.display="none"; syncTrump(); };
+  r.appendChild(nb);
+})();
+function syncTrump(){
+  [...$("trumpRow").children].forEach((b,i)=>{
+    const on = b.dataset.none ? trump===-1 : i===trump;
+    b.classList.toggle("on", on);
+  });
+}
+
+// players / seat
+(function(){
+  const p=$("players");
+  for(const v of [3,4,5,6,7]){ const o=document.createElement("option"); o.value=v; o.textContent=v; p.appendChild(o); }
+  p.value=4;
+  p.onchange=()=>{ buildSeats(); results=null; $("results").style.display="none"; refresh(); };
+  buildSeats();
+})();
+function buildSeats(){
+  const P=+$("players").value, sel=$("seat"), cur=Math.min(+sel.value||0, P-1);
+  sel.innerHTML="";
+  for(let i=0;i<P;i++){
+    const o=document.createElement("option"); o.value=i;
+    o.textContent = i===P-1 ? ("Seat "+(i+1)+" (dealer, bids last)") : ("Seat "+(i+1));
+    sel.appendChild(o);
+  }
+  sel.value=cur;
+  sel.onchange=()=>{ buildPrior(); results=null; $("results").style.display="none"; refresh(); };
+  buildPrior();
+}
+function buildPrior(){
+  const seat=+$("seat").value, row=$("priorRow"), old=[...row.querySelectorAll("input")].map(i=>+i.value);
+  row.innerHTML="";
+  if(seat===0){ row.innerHTML='<span class="hint">You bid first, so there are none.</span>'; return; }
+  for(let i=0;i<seat;i++){
+    const w=document.createElement("span");
+    w.style.cssText="display:inline-flex;align-items:center;gap:5px";
+    const l=document.createElement("span"); l.className="hint"; l.textContent="S"+(i+1);
+    const inp=document.createElement("input");
+    inp.type="number"; inp.min=0; inp.style.width="58px"; inp.value = old[i]!==undefined ? old[i] : 0;
+    inp.oninput=()=>{ results=null; $("results").style.display="none"; };
+    w.appendChild(l); w.appendChild(inp); row.appendChild(w);
+  }
+}
+
+$("agg").oninput = e => { $("aggHint").textContent = (+e.target.value).toFixed(2)+"\u00d7 the model's trick estimate"; };
+
+function refresh(){
+  const n=hand.length, P=+$("players").value;
+  $("handCount").textContent = n===0 ? "no cards selected" : (n+" card"+(n===1?"":"s")+" \u2192 "+n+"-trick round");
+  const out=$("handOut"); out.innerHTML="";
+  hand.slice().sort((a,b)=>a-b).forEach(c=>{
+    const s=document.createElement("span");
+    s.className="c"; s.style.color = isRed(suitOf(c)) ? "var(--red)" : "#e8f4ff";
+    s.textContent = RANKL[c%13]+GLYPH[suitOf(c)];
+    out.appendChild(s);
+  });
+  let err="";
+  if(n===0) err="Select the cards in your hand to begin.";
+  else if(P*n>52) err=P+" players can't each hold "+n+" cards from one deck.";
+  $("err").textContent=err;
+  $("run").disabled = !!err || running;
+  return err;
+}
+
+$("run").onclick = () => {
+  if(refresh()) return;
+  const P=+$("players").value, seat=+$("seat").value;
+  const prior=[...$("priorRow").querySelectorAll("input")].map(i=>Math.max(0,(+i.value)|0));
+  const iterations=+$("iters").value;
+  const S=initSim({
+    hand: hand.slice().sort((a,b)=>a-b), players:P, seat, trump,
+    priorBids:prior, rate:+$("rate").value, iterations,
+    aggression:+$("agg").value, seed:(+$("seed").value)|0
+  });
+  running=true; chartBid=null; $("results").style.display="none"; $("run").disabled=true;
+  const step=()=>{
+    runChunk(S,1000);
+    $("run").textContent="Simulating "+Math.round(S.done/iterations*100)+"%";
+    if(S.done>=iterations){
+      results=finalize(S); running=false;
+      $("run").textContent="Calculate bid values"; $("run").disabled=false;
+      render();
+    } else setTimeout(step,0);
+  };
+  setTimeout(step,0);
+};
+
+function money(v){
+  const sign = v>=0 ? "+" : "\u2212";
+  return sign+"$"+Math.abs(v).toFixed(2);
+}
+
+function render(){
+  $("results").style.display="block";
+  $("bestBid").textContent=results.best;
+  $("runMeta").textContent = results.iterations.toLocaleString()+" deals"
+    + (results.banned>=0 && results.banned<=results.n ? "  \u00b7  "+results.banned+" is blocked by the hook" : "");
+
+  const tb=$("tbody"); tb.innerHTML="";
+  for(const r of results.rows){
+    const tr=document.createElement("tr");
+    if(r.bid===results.best) tr.className="best";
+    tr.innerHTML =
+      "<td>"+r.bid+"</td>"+
+      '<td class="'+(r.dollars>=0?"pos":"neg")+'">'+money(r.dollars)+' <span class="se">\u00b1'+(1.96*r.se).toFixed(2)+"</span></td>"+
+      "<td>"+(r.delta>=0?"+":"\u2212")+Math.abs(r.delta).toFixed(2)+"</td>"+
+      "<td>"+r.points.toFixed(2)+"</td>"+
+      "<td>"+r.makePct.toFixed(1)+"%</td>"+
+      "<td>"+r.avgTricks.toFixed(2)+"</td>";
+    tb.appendChild(tr);
+  }
+  renderChart();
+}
+
+function renderChart(){
+  const shown = chartBid===null ? results.best : chartBid;
+  const row = results.rows.find(r=>r.bid===shown);
+
+  const pick=$("bidPick"); pick.innerHTML="";
+  for(const r of results.rows){
+    const b=document.createElement("button");
+    b.textContent=r.bid; if(r.bid===shown) b.className="on";
+    b.onclick=()=>{ chartBid=r.bid; renderChart(); };
+    pick.appendChild(b);
+  }
+  $("pickMeta").textContent = "\u00b7 lands on "+shown+" in "+row.makePct.toFixed(1)+"% of deals";
+
+  const peak=Math.max(...row.hist);
+  const bars=$("bars"); bars.innerHTML="";
+  row.hist.forEach((p,t)=>{
+    const d=document.createElement("div");
+    d.className="bar"+(t===shown?" hit":"");
+    const h = peak>0 ? Math.max(p/peak*100, p>0?1.5:0) : 0;
+    d.innerHTML='<div class="v">'+(p>0&&p<0.001 ? "&lt;0.1" : (p*100).toFixed(1))+'</div>'
+      +'<div class="b" style="height:'+h+'%"></div><div class="t">'+t+"</div>";
+    bars.appendChild(d);
+  });
+
+  $("diag").textContent = "Model check: opponents make their bids "+results.diag.oppMakePct.toFixed(1)
+    +"% of the time and the table bids "+results.diag.avgBidTotal.toFixed(2)+" tricks against "+results.n
+    +" available. If those look off compared to your group, move the aggression slider until they match.";
+}
+
+refresh();
+</script>
+</body>
+</html>
