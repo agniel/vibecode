@@ -160,6 +160,15 @@ tr.best td:first-child { color: var(--green); font-weight: 700; }
 .se { color: var(--faint); font-size: .8rem; }
 .scroll { overflow-x: auto; }
 
+tr.dead td { color: var(--faint); }
+tr.dead td .pos, tr.dead td .neg { color: var(--faint); }
+.deadtag {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--faint); border: 1px solid var(--border);
+  padding: 1px 5px; border-radius: 2px; margin-left: 6px; white-space: nowrap;
+}
+
 .bidpick { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
 .bidpick button {
   width: 32px; height: 28px;
@@ -342,7 +351,7 @@ function beats(c,w,trump){
 }
 const skey=(c,trump)=>(suitOf(c)===trump?100:0)+rankOf(c);
 
-function chooseCard(hand, ledSuit, winCard, trump, needed, behind){
+function chooseCard(hand, ledSuit, winCard, trump, needed){
   const left = hand.length;
   const shed = Math.max(0, left - Math.max(needed,0));
   let legal = hand;
@@ -367,11 +376,6 @@ function chooseCard(hand, ledSuit, winCard, trump, needed, behind){
   const winners = legal.filter(c=>beats(c,winCard,trump));
   const keepers = winners.filter(c=>!dump.has(c));
   if(needed>0 && keepers.length){
-    const ruffing = ledSuit!==trump && suitOf(winCard)!==trump;
-    if(ruffing && behind>0 && keepers.some(c=>suitOf(c)===trump)){
-      const t = keepers.filter(c=>suitOf(c)===trump);
-      return t.reduce((a,b)=> rankOf(b)>rankOf(a) ? b : a);   // ruff high, survive an overruff
-    }
     const k = c => rankOf(c) + (suitOf(c)===trump && ledSuit!==trump ? 100 : 0);
     return keepers.reduce((a,b)=> k(b)<k(a) ? b : a);
   }
@@ -395,7 +399,7 @@ function playHand(hands,bids,trump,P,n){
     let ledSuit=-1, winCard=-1, winner=leader;
     for(let i=0;i<P;i++){
       const p=(leader+i)%P;
-      const card=chooseCard(h[p],ledSuit,winCard,trump,bids[p]-won[p],P-1-i);
+      const card=chooseCard(h[p],ledSuit,winCard,trump,bids[p]-won[p]);
       h[p].splice(h[p].indexOf(card),1);
       if(i===0) ledSuit=suitOf(card);
       if(beats(card,winCard,trump)){ winCard=card; winner=p; }
@@ -408,6 +412,17 @@ function playHand(hands,bids,trump,P,n){
 /* Vienna: make a nonzero bid = 10 + tricks; make zero = 5 + tricks in round; miss = 1/trick */
 const vienna = (bid,won,n) => bid===won ? (bid===0 ? 5+n : 10+won) : won;
 
+/* Bidders behind you read the auction. Tricks are conserved, so if B of the n
+   tricks are already claimed and R players are still to bid, a bidder's share of
+   what is left scales by P(n-B)/(R*n) against the prior. A round already sold out
+   gets shaded hard; an undersold one gets a damped nudge upward. */
+function auctionFactor(n,P,B,R){
+  const free = n - B;
+  if(free <= 0) return Math.max(0, 1 + free/n);
+  const fair = Math.max(0, Math.min(2, (P*free)/(R*n)));
+  return 1 + 0.5*(fair - 1);
+}
+
 /* ===== simulation ===== */
 function initSim(cfg){
   const n=cfg.hand.length, P=cfg.players;
@@ -419,8 +434,8 @@ function initSim(cfg){
   const cands=[];
   for(let b=0;b<=n;b++) if(b!==banned) cands.push(b);
   return { cfg,n,P,pool,cands,banned, rng:mulberry32(cfg.seed>>>0), done:0,
-    acc: cands.map(()=>({pts:0,d:0,d2:0,makes:0,tricks:0,hist:new Array(n+1).fill(0),seats:new Array(P).fill(0)})),
-    diag:{oppMakes:0,oppHands:0,bidTotal:0} };
+    acc: cands.map(()=>({pts:0,d:0,d2:0,makes:0,tricks:0,hist:new Array(n+1).fill(0),seats:new Array(P).fill(0),behind:0,oppMakes:0,bidTot:0})),
+  };
 }
 
 function runChunk(S,count){
@@ -431,29 +446,28 @@ function runChunk(S,count){
     const hands=new Array(P); let oi=0;
     for(let s=0;s<P;s++) hands[s] = (s===cfg.seat) ? cfg.hand : opp[oi++];
 
-    const base=new Array(P).fill(0);
-    for(let s=0;s<P;s++){
-      if(s===cfg.seat) continue;
-      if(s<cfg.seat){ base[s]=cfg.priorBids[s]; }
-      else {
-        const e=estimateTricks(hands[s],cfg.trump,n,P)*cfg.aggression;
-        const fl=Math.floor(e);
-        base[s]=Math.max(0,Math.min(n, rng()<e-fl ? fl+1 : fl));
-      }
+    // raw hand strength and one uniform per seat behind you, drawn once per deal so
+    // every candidate bid is judged against the same cards and the same coin flips
+    const raw=new Array(P).fill(0), u=new Array(P).fill(0);
+    for(let s=cfg.seat+1;s<P;s++){
+      raw[s]=estimateTricks(hands[s],cfg.trump,n,P)*cfg.aggression;
+      u[s]=rng();
     }
 
     for(let ci=0; ci<cands.length; ci++){
-      const bids=base.slice(); bids[cfg.seat]=cands[ci];
-      const dealer=P-1;
-      if(dealer!==cfg.seat){
-        let others=0; for(let s=0;s<P;s++) if(s!==dealer) others+=bids[s];
-        if(bids[dealer]===n-others){
-          const e=estimateTricks(hands[dealer],cfg.trump,n,P);
-          let alt = e>bids[dealer] ? bids[dealer]+1 : bids[dealer]-1;
-          if(alt<0) alt=bids[dealer]+1;
-          if(alt>n) alt=bids[dealer]-1;
-          bids[dealer]=alt;
+      const bids=new Array(P).fill(0);
+      let B=0, behind=0;
+      for(let s=0;s<cfg.seat;s++){ bids[s]=cfg.priorBids[s]; B+=bids[s]; }
+      bids[cfg.seat]=cands[ci]; B+=cands[ci];
+      for(let s=cfg.seat+1;s<P;s++){
+        const e=Math.max(0, Math.min(n, raw[s]*auctionFactor(n,P,B,P-s)));
+        const fl=Math.floor(e);
+        let b=Math.max(0, Math.min(n, u[s]<e-fl ? fl+1 : fl));
+        if(s===P-1 && b===n-B){                 // hook: shift off the banned number
+          b = e>b ? Math.min(n,b+1) : Math.max(0,b-1);
+          if(b===n-B) b=Math.min(n,b+1);
         }
+        bids[s]=b; B+=b; behind+=b;
       }
       const won=playHand(hands,bids,cfg.trump,P,n);
       const sc=new Array(P); let tot=0;
@@ -463,10 +477,9 @@ function runChunk(S,count){
       a.pts+=sc[cfg.seat]; a.d+=d; a.d2+=d*d; a.tricks+=won[cfg.seat]; a.hist[won[cfg.seat]]++;
       if(won[cfg.seat]===cands[ci]) a.makes++;
       for(let s=0;s<P;s++) a.seats[s]+=sc[s];
-      if(ci===0){
-        for(let s=0;s<P;s++){ if(s===cfg.seat) continue; S.diag.oppHands++; if(won[s]===bids[s]) S.diag.oppMakes++; }
-        S.diag.bidTotal += bids.reduce((x,y)=>x+y,0);
-      }
+      a.behind+=behind;
+      for(let s=0;s<P;s++){ if(s===cfg.seat) continue; if(won[s]===bids[s]) a.oppMakes++; }
+      a.bidTot += bids.reduce((x,y)=>x+y,0);
     }
   }
 }
@@ -475,19 +488,24 @@ function finalize(S){
   const N=S.done;
   const rows=S.cands.map((bid,i)=>{
     const a=S.acc[i], m=a.d/N, v=a.d2/N-m*m;
-    return { bid, points:a.pts/N, delta:m, dollars:m*S.cfg.rate,
-      se: Math.sqrt(Math.max(v,0)/N)*S.cfg.rate,
+    return { bid, points:a.pts/N, delta:m,
+      se: Math.sqrt(Math.max(v,0)/N),
       makePct:(a.makes/N)*100, avgTricks:a.tricks/N,
-      hist:a.hist.map(h=>h/N), seats:a.seats.map(x=>x/N) };
+      hist:a.hist.map(h=>h/N), seats:a.seats.map(x=>x/N), behind:a.behind/N,
+      oppMakePct:100*a.oppMakes/(N*(S.P-1)), avgBidTotal:a.bidTot/N };
   });
   const best=rows.reduce((a,b)=> b.delta>a.delta ? b : a);
-  return { rows, best:best.bid, n:S.n, banned:S.banned, iterations:N,
-    diag:{ oppMakePct:(S.diag.oppMakes/Math.max(S.diag.oppHands,1))*100, avgBidTotal:S.diag.bidTotal/N } };
+  return { rows, best:best.bid, n:S.n, banned:S.banned, iterations:N };
 }
 
 /* ===== UI ===== */
 const $ = id => document.getElementById(id);
-let hand = [], trump = 0, results = null, chartBid = null, running = false;
+// defaults: the worked example - AKJ4 of trumps, diamonds, seat 4 of 5, bids 0/1/2 ahead
+const DEFAULT_HAND  = [2*13+12, 2*13+11, 2*13+9, 2*13+2];   // A K J 4 of diamonds
+const DEFAULT_TRUMP = 2;                                     // diamonds
+const DEFAULT_SEAT  = 3;                                     // seat 4 of 5
+const DEFAULT_PRIOR = [0, 1, 2];
+let hand = DEFAULT_HAND.slice(), trump = DEFAULT_TRUMP, results = null, chartBid = null, running = false;
 
 // deck
 (function buildDeck(){
@@ -500,7 +518,8 @@ let hand = [], trump = 0, results = null, chartBid = null, running = false;
     for(const ri of SHOW){
       const c=s*13+ri;
       const b=document.createElement("button");
-      b.className="ct"+(isRed(s)?" red":""); b.textContent=RANKL[ri]; b.dataset.card=c;
+      b.className="ct"+(isRed(s)?" red":"")+(hand.includes(c)?" on":"");
+      b.textContent=RANKL[ri]; b.dataset.card=c;
       b.setAttribute("aria-label", RANKL[ri]+" of "+["spades","hearts","diamonds","clubs"][s]);
       b.onclick=()=>{
         const i=hand.indexOf(c);
@@ -540,7 +559,7 @@ function syncTrump(){
 (function(){
   const p=$("players");
   for(const v of [3,4,5,6,7]){ const o=document.createElement("option"); o.value=v; o.textContent=v; p.appendChild(o); }
-  p.value=4;
+  p.value=5;
   p.onchange=()=>{ buildSeats(); results=null; $("results").style.display="none"; refresh(); };
   buildSeats();
 })();
@@ -570,6 +589,8 @@ function buildPrior(){
     w.appendChild(l); w.appendChild(inp); row.appendChild(w);
   }
 }
+
+$("rate").oninput = () => { if(results) render(); };
 
 $("agg").oninput = e => { $("aggHint").textContent = (+e.target.value).toFixed(2)+"\u00d7 the model's trick estimate"; };
 
@@ -629,9 +650,13 @@ function render(){
   for(const r of results.rows){
     const tr=document.createElement("tr");
     if(r.bid===results.best) tr.className="best";
+    const rate = +$("rate").value;
+    const dollars = r.delta * rate;
+    const dead = r.makePct < 0.05;
+    if(dead) tr.className = (tr.className?tr.className+" ":"")+"dead";
     tr.innerHTML =
-      "<td>"+r.bid+"</td>"+
-      '<td class="'+(r.dollars>=0?"pos":"neg")+'">'+money(r.dollars)+' <span class="se">\u00b1'+(1.96*r.se).toFixed(2)+"</span></td>"+
+      "<td>"+r.bid+(dead?' <span class="deadtag">can\'t be made</span>':"")+"</td>"+
+      '<td class="'+(dead?"":(dollars>=0?"pos":"neg"))+'">'+money(dollars)+' <span class="se">\u00b1'+(1.96*r.se*rate).toFixed(2)+"</span></td>"+
       "<td>"+(r.delta>=0?"+":"\u2212")+Math.abs(r.delta).toFixed(2)+"</td>"+
       "<td>"+r.points.toFixed(2)+"</td>"+
       "<td>"+r.makePct.toFixed(1)+"%</td>"+
@@ -665,10 +690,21 @@ function renderChart(){
     bars.appendChild(d);
   });
 
-  $("diag").textContent = "Model check: opponents make their bids "+results.diag.oppMakePct.toFixed(1)
-    +"% of the time and the table bids "+results.diag.avgBidTotal.toFixed(2)+" tricks against "+results.n
-    +" available. If those look off compared to your group, move the aggression slider until they match.";
+  const nBehind = (+$("players").value) - 1 - (+$("seat").value);
+  $("diag").textContent = "Model check, if you bid "+shown+": the other seats make their bids "
+    + row.oppMakePct.toFixed(1) + "% of the time and the table bids "
+    + row.avgBidTotal.toFixed(2) + " tricks against " + results.n + " available."
+    + (nBehind>0 ? " The "+nBehind+" seat"+(nBehind===1?"":"s")+" behind you bid "
+        + row.behind.toFixed(2) + " between them." : "")
+    + " If those look off compared to your group, move the aggression slider until they match.";
 }
+
+(function applyDefaults(){
+  $("seat").value = String(DEFAULT_SEAT);
+  buildPrior();
+  const inp = [...$("priorRow").querySelectorAll("input")];
+  DEFAULT_PRIOR.forEach((v,i)=>{ if(inp[i]) inp[i].value = String(v); });
+})();
 
 refresh();
 </script>
