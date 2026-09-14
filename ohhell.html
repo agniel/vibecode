@@ -311,30 +311,118 @@ const isRed  = s => s===1 || s===2;
 function mulberry32(a){return function(){a|=0;a=(a+0x6d2b79f5)|0;let t=Math.imul(a^(a>>>15),1|a);
   t=(t+Math.imul(t^(t>>>7),61|t))^t;return ((t^(t>>>14))>>>0)/4294967296;};}
 
-/* ===== opponent bid model ===== */
-function estimateTricks(hand, trump, n, P){
-  const by=[[],[],[],[]];
-  for(const c of hand) by[suitOf(c)].push(rankOf(c));
-  let est=0;
-  const tr = trump>=0 ? by[trump].slice().sort((a,b)=>b-a) : [];
-  for(const r of tr){
-    if(r===14)est+=.95; else if(r===13)est+=.85; else if(r===12)est+=.7;
-    else if(r===11)est+=.55; else if(r===10)est+=.4; else est+=.2;
-  }
+/* ===== Vienna scoring ===== */
+const vienna = (bid,won,n) => bid===won ? (bid===0 ? 5+n : 10+won) : won;
+
+/* ===== hand strength and bidding ===== */
+const COEF={
+1:{b:[-0.00912,0.95945,0.00757,0.02989,0.5152,0.02272,-0.01669,-0.20908,0.05389,0.05389],sm:0.107,so:0.2736},
+2:{b:[0.12103,0.87105,0.31439,0.169,0.84097,-0.03197,-0.07233,-0.16673,0.05215,0.02607],sm:0.1155,so:0.4202},
+3:{b:[0.06826,0.76404,0.27338,0.17091,1.29294,0.05777,-0.06859,0.1307,0.03696,0.01232],sm:0.124,so:0.518},
+4:{b:[0.05516,0.72506,0.30118,0.22928,2.28264,0.07849,-0.08052,0.27522,0.02433,0.00608],sm:0.142,so:0.5699},
+5:{b:[0.03728,0.69811,0.27241,0.27669,3.69872,0.11811,-0.086,0.39394,-0.0048,-0.00096],sm:0.1913,so:0.6154},
+6:{b:[0.02702,0.67467,0.25536,0.31532,5.98775,0.15683,-0.09325,0.49286,0.00233,0.00039],sm:0.2407,so:0.6419},
+7:{b:[0.02457,0.66648,0.26058,0.35343,15.64931,0.18624,-0.08862,0.51684,0.01434,0.00205],sm:0.29,so:0.6868},
+8:{b:[0.03306,0.65512,0.35816,0.4425,32.98061,0.15314,-0.09368,0.5046,-0.03203,-0.004],sm:0.348,so:0.7453},
+9:{b:[0.03949,0.63554,0.45488,0.49063,80.31853,0.09961,-0.09951,0.49938,0.0077,0.00086],sm:0.406,so:0.8345},
+10:{b:[0.0348,0.64631,0.45458,0.49221,180.49519,0.09198,-0.10654,0.5688,0.01011,0.00101],sm:0.464,so:0.8798}
+};
+
+/* Hand strength, fit against ~290k simulated hands. The hypergeometric term is what
+   makes a jack worth 0.83 when three opponents hold one card each and ~0 when they
+   hold ten: card rank only matters relative to how much of the deck is in play. */
+const LF=[0]; for(let i=1;i<=60;i++) LF[i]=LF[i-1]+Math.log(i);
+const lc=(a,b)=> (b<0||b>a) ? -Infinity : LF[a]-LF[b]-LF[a-b];
+function pNoneDealt(h,U,D){
+  if(h===0) return 1;
+  if(U-h < D) return 0;
+  return Math.exp(lc(U-h,D)-lc(U,D));
+}
+function features(hand,trump,n,P,leadPos){
+  const U=52-n, D=(P-1)*n, mine=new Set(hand);
+  const bySuit=[[],[],[],[]];
+  for(const c of hand) bySuit[suitOf(c)].push(c);
+  let topTrump=0, topSide=0, trumpLen=0, voids=0, singles=0, sideCards=0;
   for(let s=0;s<4;s++){
-    if(s===trump) continue;
-    const cards=by[s], len=cards.length;
-    for(const r of cards){
-      if(r===14)est+=.9; else if(r===13)est+= len>=2?.6:.3;
-      else if(r===12)est+= len>=3?.35:.12; else if(r===11)est+= len>=4?.15:.05; else est+=.02;
-    }
-    if(trump>=0 && tr.length>0 && n>2){
-      if(len===0) est += Math.min(tr.length,2)*.35;
-      else if(len===1) est += Math.min(tr.length,2)*.15;
+    const cards=bySuit[s];
+    if(s!==trump){
+      if(cards.length===0) voids++; else if(cards.length===1) singles++;
+      sideCards+=cards.length;
+    } else trumpLen=cards.length;
+    for(const c of cards){
+      let h=0;
+      for(let r=rankOf(c)+1;r<=14;r++) if(!mine.has(s*13+(r-2))) h++;
+      const top=pNoneDealt(h,U,D);
+      if(s===trump) topTrump+=top; else topSide+=top;
     }
   }
-  est *= 1 - 0.04*(P-4);
-  return Math.max(0, Math.min(n, est));
+  const ruff = trump>=0 ? Math.min(trumpLen,3)*(voids+0.4*singles) : 0;
+  const noTrumpOut = trump>=0 ? pNoneDealt(13-trumpLen,U,D) : 1;
+  const onLead = leadPos===0 ? 1 : 0;
+  return [1,topTrump,trumpLen,topSide,topSide*noTrumpOut,ruff,sideCards,n/P,onLead,onLead/n];
+}
+const cf=n=>COEF[n]||COEF[10];
+function muFor(hand,trump,n,P,leadPos){
+  const b=cf(n).b, f=features(hand,trump,n,P,leadPos);
+  let m=0; for(let i=0;i<b.length;i++) m+=b[i]*f[i];
+  return Math.max(0,Math.min(n,m));
+}
+
+/* One generative model, used in both directions: a player's true strength is
+   mu +/- sigModel, and they bid whatever maximises Vienna EV at that strength.
+   sigOutcome is deal luck (their own uncertainty); sigModel is my error about them. */
+const erf=x=>{const s=x<0?-1:1; x=Math.abs(x);
+  const t=1/(1+0.3275911*x);
+  return s*(1-((((1.061405429*t-1.453152027)*t+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x));};
+const Phi=z=> z<=-8?0 : z>=8?1 : 0.5*(1+erf(z/Math.SQRT2));
+function trickDist(mu,n,sig){
+  const p=[]; let tot=0;
+  for(let k=0;k<=n;k++){ const w=Math.exp(-((k-mu)*(k-mu))/(2*sig*sig)); p.push(w); tot+=w; }
+  return p.map(x=>x/tot);
+}
+function bestBidFor(mu,n,banned){
+  const p=trickDist(mu,n,cf(n).so);
+  let best=-1,bev=-Infinity;
+  for(let b=0;b<=n;b++){
+    if(b===banned) continue;
+    let ev=0; for(let k=0;k<=n;k++) ev+=p[k]*vienna(b,k,n);
+    if(ev>bev){bev=ev;best=b;}
+  }
+  return best;
+}
+const THRESH={};
+function bands(n,banned){
+  const key=n+"|"+banned;
+  if(THRESH[key]) return THRESH[key];
+  const STEP=0.004, sw=[]; let prev=bestBidFor(0,n,banned);
+  for(let mu=STEP; mu<=n+1e-9; mu+=STEP){
+    const b=bestBidFor(mu,n,banned);
+    if(b!==prev){ sw.push({mu,to:b}); prev=b; }
+  }
+  const edges=[0].concat(sw.map(x=>x.mu)).concat([n]);
+  const out=[]; let b=bestBidFor(0,n,banned);
+  for(let i=0;i<edges.length-1;i++){ out.push({lo:edges[i],hi:edges[i+1],bid:b});
+    if(sw[i]) b=sw[i].to; }
+  return THRESH[key]=out;
+}
+function bidAt(mu,n,banned){
+  for(const bd of bands(n,banned)) if(mu>=bd.lo && mu<bd.hi) return bd.bid;
+  return bands(n,banned)[bands(n,banned).length-1].bid;
+}
+/* How far a real player's bid strays from the EV-optimal one. Scaled to the
+   outcome spread, because a 1-card round is easy to judge and a 10-card round
+   is not. This is the number a few hundred logged hands would actually fit. */
+const PLAYER_NOISE = 0.35;
+function sigLik(n){ const c=cf(n); return Math.sqrt(c.sm*c.sm + (PLAYER_NOISE*c.so)**2); }
+function bidLikelihood(muHat,n,banned,obs){
+  const sig=sigLik(n); let p=0;
+  for(const bd of bands(n,banned)){
+    if(bd.bid!==obs) continue;
+    const lo = bd.lo<=0 ? -Infinity : (bd.lo-muHat)/sig;
+    const hi = bd.hi>=n ?  Infinity : (bd.hi-muHat)/sig;
+    p += Phi(hi)-Phi(lo);
+  }
+  return Math.max(p,1e-12);
 }
 
 /* ===== play policy ===== */
@@ -406,9 +494,6 @@ function playHand(hands,bids,trump,P,n){
   return won;
 }
 
-/* Vienna: make a nonzero bid = 10 + tricks; make zero = 5 + tricks in round; miss = 1/trick */
-const vienna = (bid,won,n) => bid===won ? (bid===0 ? 5+n : 10+won) : won;
-
 /* Bidders behind you read the auction. Tricks are conserved, so if B of the n
    tricks are already claimed and R players are still to bid, a bidder's share of
    what is left scales by P(n-B)/(R*n) against the prior. A round already sold out
@@ -418,21 +503,6 @@ function auctionFactor(n,P,B,R){
   if(free <= 0) return Math.max(0, 1 + free/n);
   const fair = Math.max(0, Math.min(2, (P*free)/(R*n)));
   return 1 + 0.5*(fair - 1);
-}
-
-/* How plausible is the bid a seat ahead of you actually made, given the hand this
-   deal handed them? A discretised gaussian around their shaded estimate. SIGMA is
-   how loosely a player's bid tracks their hand strength: smaller conditions harder
-   on the auction but throws away more deals. */
-const SIGMA = 0.9;
-function bidLikelihood(hand,trump,n,P,B,R,obs){
-  const e = Math.max(0, Math.min(n, estimateTricks(hand,trump,n,P)*auctionFactor(n,P,B,R)));
-  let tot=0, hit=0;
-  for(let b=0;b<=n;b++){
-    const w = Math.exp(-((b-e)*(b-e))/(2*SIGMA*SIGMA));
-    tot += w; if(b===obs) hit = w;
-  }
-  return tot>0 ? hit/tot : 0;
 }
 
 /* ===== simulation ===== */
@@ -462,7 +532,8 @@ function runChunk(S,count){
     // it dealt - this is what conditions the unseen cards on the auction
     let w=1, Bo=0;
     for(let s=0;s<cfg.seat;s++){
-      w *= bidLikelihood(hands[s],cfg.trump,n,P,Bo,P-s,cfg.priorBids[s]);
+      const mu = muFor(hands[s],cfg.trump,n,P,s)*auctionFactor(n,P,Bo,P-s);
+      w *= bidLikelihood(mu,n,-1,cfg.priorBids[s]);
       Bo += cfg.priorBids[s];
     }
     S.wSum+=w; S.wSum2+=w*w;
@@ -472,8 +543,10 @@ function runChunk(S,count){
     // every candidate bid is judged against the same cards and the same coin flips
     const raw=new Array(P).fill(0), u=new Array(P).fill(0);
     for(let s=cfg.seat+1;s<P;s++){
-      raw[s]=estimateTricks(hands[s],cfg.trump,n,P)*cfg.aggression;
-      u[s]=rng();
+      raw[s]=muFor(hands[s],cfg.trump,n,P,s)*cfg.aggression;
+      // box-muller: their true strength is my estimate plus my own model error
+      const a=Math.max(rng(),1e-12), b2=rng();
+      u[s]=Math.sqrt(-2*Math.log(a))*Math.cos(2*Math.PI*b2);
     }
 
     for(let ci=0; ci<cands.length; ci++){
@@ -482,13 +555,9 @@ function runChunk(S,count){
       for(let s=0;s<cfg.seat;s++){ bids[s]=cfg.priorBids[s]; B+=bids[s]; }
       bids[cfg.seat]=cands[ci]; B+=cands[ci];
       for(let s=cfg.seat+1;s<P;s++){
-        const e=Math.max(0, Math.min(n, raw[s]*auctionFactor(n,P,B,P-s)));
-        const fl=Math.floor(e);
-        let b=Math.max(0, Math.min(n, u[s]<e-fl ? fl+1 : fl));
-        if(s===P-1 && b===n-B){                 // hook: shift off the banned number
-          b = e>b ? Math.min(n,b+1) : Math.max(0,b-1);
-          if(b===n-B) b=Math.min(n,b+1);
-        }
+        const e=Math.max(0, Math.min(n, raw[s]*auctionFactor(n,P,B,P-s) + u[s]*sigLik(n)));
+        const banned = (s===P-1) ? n-B : -1;    // only the dealer is hooked
+        const b=bidAt(e,n,banned);
         bids[s]=b; B+=b; behind+=b;
       }
       const won=playHand(hands,bids,cfg.trump,P,n);
@@ -661,6 +730,18 @@ $("run").onclick = () => {
 
 function render(){
   $("results").style.display="block";
+  if(results.ess < 250){
+    $("bestBid").textContent="\u2014";
+    $("runMeta").textContent=results.iterations.toLocaleString()+" deals";
+    $("tbody").innerHTML='<tr><td colspan="5" style="padding:14px 0;color:var(--red)">'
+      +"This auction is very hard to reconcile with the model \u2014 only "
+      +Math.round(results.ess)+" of "+results.iterations.toLocaleString()
+      +" deals carry meaningful weight. Any numbers here would be noise, so they are withheld. "
+      +"Raise the deal count, or check the bids entered are right."+"</td></tr>";
+    $("bidPick").innerHTML=""; $("pickMeta").textContent="";
+    $("bars").innerHTML=""; $("diag").textContent="";
+    return;
+  }
   $("bestBid").textContent=results.best;
   $("runMeta").textContent = results.iterations.toLocaleString()+" deals"
     + (results.ess < results.iterations*0.999
