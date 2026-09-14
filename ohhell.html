@@ -420,6 +420,21 @@ function auctionFactor(n,P,B,R){
   return 1 + 0.5*(fair - 1);
 }
 
+/* How plausible is the bid a seat ahead of you actually made, given the hand this
+   deal handed them? A discretised gaussian around their shaded estimate. SIGMA is
+   how loosely a player's bid tracks their hand strength: smaller conditions harder
+   on the auction but throws away more deals. */
+const SIGMA = 0.9;
+function bidLikelihood(hand,trump,n,P,B,R,obs){
+  const e = Math.max(0, Math.min(n, estimateTricks(hand,trump,n,P)*auctionFactor(n,P,B,R)));
+  let tot=0, hit=0;
+  for(let b=0;b<=n;b++){
+    const w = Math.exp(-((b-e)*(b-e))/(2*SIGMA*SIGMA));
+    tot += w; if(b===obs) hit = w;
+  }
+  return tot>0 ? hit/tot : 0;
+}
+
 /* ===== simulation ===== */
 function initSim(cfg){
   const n=cfg.hand.length, P=cfg.players;
@@ -430,7 +445,7 @@ function initSim(cfg){
   const banned = isDealer ? n-priorSum : -1;
   const cands=[];
   for(let b=0;b<=n;b++) if(b!==banned) cands.push(b);
-  return { cfg,n,P,pool,cands,banned, rng:mulberry32(cfg.seed>>>0), done:0,
+  return { cfg,n,P,pool,cands,banned, rng:mulberry32(cfg.seed>>>0), done:0, wSum:0, wSum2:0,
     acc: cands.map(()=>({pts:0,d:0,d2:0,makes:0,tricks:0,hist:new Array(n+1).fill(0),seats:new Array(P).fill(0),behind:0,oppMakes:0,bidTot:0})),
   };
 }
@@ -442,6 +457,16 @@ function runChunk(S,count){
     const opp=[]; for(let k=0;k<nOpp;k++) opp.push(pool.slice(k*n,k*n+n));
     const hands=new Array(P); let oi=0;
     for(let s=0;s<P;s++) hands[s] = (s===cfg.seat) ? cfg.hand : opp[oi++];
+
+    // weight this deal by how plausible the bids ahead of you are, given the hands
+    // it dealt - this is what conditions the unseen cards on the auction
+    let w=1, Bo=0;
+    for(let s=0;s<cfg.seat;s++){
+      w *= bidLikelihood(hands[s],cfg.trump,n,P,Bo,P-s,cfg.priorBids[s]);
+      Bo += cfg.priorBids[s];
+    }
+    S.wSum+=w; S.wSum2+=w*w;
+    if(w < 1e-9) continue;              // contributes nothing, skip the playouts
 
     // raw hand strength and one uniform per seat behind you, drawn once per deal so
     // every candidate bid is judged against the same cards and the same coin flips
@@ -471,28 +496,30 @@ function runChunk(S,count){
       for(let s=0;s<P;s++){ sc[s]=vienna(bids[s],won[s],n); tot+=sc[s]; }
       const d = sc[cfg.seat] - tot/P;
       const a=S.acc[ci];
-      a.pts+=sc[cfg.seat]; a.d+=d; a.d2+=d*d; a.tricks+=won[cfg.seat]; a.hist[won[cfg.seat]]++;
-      if(won[cfg.seat]===cands[ci]) a.makes++;
-      for(let s=0;s<P;s++) a.seats[s]+=sc[s];
-      a.behind+=behind;
-      for(let s=0;s<P;s++){ if(s===cfg.seat) continue; if(won[s]===bids[s]) a.oppMakes++; }
-      a.bidTot += bids.reduce((x,y)=>x+y,0);
+      a.pts+=w*sc[cfg.seat]; a.d+=w*d; a.d2+=w*d*d; a.tricks+=w*won[cfg.seat];
+      a.hist[won[cfg.seat]]+=w;
+      if(won[cfg.seat]===cands[ci]) a.makes+=w;
+      for(let s=0;s<P;s++) a.seats[s]+=w*sc[s];
+      a.behind+=w*behind;
+      for(let s=0;s<P;s++){ if(s===cfg.seat) continue; if(won[s]===bids[s]) a.oppMakes+=w; }
+      a.bidTot += w*bids.reduce((x,y)=>x+y,0);
     }
   }
 }
 
 function finalize(S){
-  const N=S.done;
+  const N=Math.max(S.wSum,1e-12);                      // total weight, not deal count
+  const ess=S.wSum2>0 ? (S.wSum*S.wSum)/S.wSum2 : 0;   // effective sample size
   const rows=S.cands.map((bid,i)=>{
     const a=S.acc[i], m=a.d/N, v=a.d2/N-m*m;
     return { bid, points:a.pts/N, delta:m,
-      se: Math.sqrt(Math.max(v,0)/N),
+      se: Math.sqrt(Math.max(v,0)/Math.max(ess,1)),
       makePct:(a.makes/N)*100, avgTricks:a.tricks/N,
       hist:a.hist.map(h=>h/N), seats:a.seats.map(x=>x/N), behind:a.behind/N,
       oppMakePct:100*a.oppMakes/(N*(S.P-1)), avgBidTotal:a.bidTot/N };
   });
   const best=rows.reduce((a,b)=> b.delta>a.delta ? b : a);
-  return { rows, best:best.bid, n:S.n, banned:S.banned, iterations:N };
+  return { rows, best:best.bid, n:S.n, banned:S.banned, iterations:S.done, ess };
 }
 
 /* ===== UI ===== */
@@ -636,6 +663,8 @@ function render(){
   $("results").style.display="block";
   $("bestBid").textContent=results.best;
   $("runMeta").textContent = results.iterations.toLocaleString()+" deals"
+    + (results.ess < results.iterations*0.999
+        ? "  \u00b7  " + Math.round(results.ess).toLocaleString() + " effective after conditioning on the auction" : "")
     + (results.banned>=0 && results.banned<=results.n ? "  \u00b7  "+results.banned+" is blocked by the hook" : "");
 
   const tb=$("tbody"); tb.innerHTML="";
