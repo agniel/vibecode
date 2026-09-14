@@ -113,7 +113,18 @@ h1 span { color: var(--green); }
   color: var(--faint);
 }
 
-.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px,1fr)); gap: 20px; }
+.grid2 { display: grid; grid-template-columns: minmax(230px,1fr) minmax(380px,1.75fr); gap: 20px; }
+@media (max-width: 780px) { .grid2 { grid-template-columns: 1fr; } }
+.subgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* collapsible panel */
+details.disclose > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+details.disclose > summary::-webkit-details-marker { display: none; }
+details.disclose > summary::before {
+  content: "\25B8"; color: var(--green); display: inline-block; transition: transform .15s;
+}
+details.disclose[open] > summary::before { transform: rotate(90deg); }
+details.disclose > summary .eyebrow:last-child { margin-left: auto; }
 
 label.field { display: block; margin-bottom: 16px; }
 label.field > .lbl { display: block; font-size: .8rem; color: var(--dim); margin-bottom: 5px; }
@@ -251,7 +262,7 @@ footer {
   </div>
 
   <!-- setup -->
-  <div class="grid3">
+  <div class="grid2">
     <div class="panel">
       <div class="eyebrow" style="margin-bottom:14px">Table</div>
       <label class="field">
@@ -262,7 +273,7 @@ footer {
         <span class="lbl">Players</span>
         <select id="players"></select>
       </label>
-      <label class="field">
+      <label class="field" style="margin-bottom:0">
         <span class="lbl">Your seat in the bidding</span>
         <select id="seat"></select>
         <span class="hint">Seat 1 sits left of the dealer and bids first.</span>
@@ -270,56 +281,50 @@ footer {
     </div>
 
     <div class="panel">
-      <div class="eyebrow" style="margin-bottom:14px">Bidding</div>
+      <div class="eyebrow" style="margin-bottom:14px">Bidding &amp; run</div>
       <label class="field">
         <span class="lbl">Bids already made ahead of you</span>
-        <div style="display:flex;gap:9px;flex-wrap:wrap" id="priorRow"></div>
+        <div style="display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px" id="priorRow"></div>
       </label>
-      <label class="field">
-        <span class="lbl"><span class="tip" title="Scales how boldly the seats behind you bid. Bids ahead of you are used exactly as typed, so this does nothing when you are the dealer and very little when only one seat is left to bid. Raising it makes those seats claim more tricks, which means they bust more often and pull the table mean down under you. Tune it until the model check under the results matches how your group actually bids.">Opponent bidding aggression</span></span>
-        <input type="range" id="agg" min="0.7" max="1.3" step="0.05" value="1"
-               title="Scales how boldly the seats behind you bid. Bids ahead of you are used exactly as typed, so this does nothing when you are the dealer and very little when only one seat is left to bid. Raising it makes those seats claim more tricks, which means they bust more often and pull the table mean down under you. Tune it until the model check under the results matches how your group actually bids.">
-        <span class="hint" id="aggHint">1.00&times; hand strength, for the seats behind you</span>
-      </label>
-    </div>
-
-    <div class="panel">
-      <div class="eyebrow" style="margin-bottom:14px">Run</div>
-      <label class="field">
-        <span class="lbl">Simulated deals</span>
-        <select id="iters">
-          <option value="5000">5,000</option>
-          <option value="20000" selected>20,000</option>
-          <option value="50000">50,000</option>
-          <option value="100000">100,000</option>
-        </select>
-      </label>
-      <label class="field">
-        <span class="lbl">Random seed</span>
-        <input type="number" id="seed" value="12345">
-        <span class="hint">Same seed and inputs reproduce the same answer.</span>
-      </label>
+      <div class="subgrid">
+        <label class="field" style="margin-bottom:6px">
+          <span class="lbl">Simulated deals</span>
+          <select id="iters">
+            <option value="5000">5,000</option>
+            <option value="20000" selected>20,000</option>
+            <option value="50000">50,000</option>
+            <option value="100000">100,000</option>
+          </select>
+        </label>
+        <label class="field" style="margin-bottom:6px">
+          <span class="lbl">Random seed</span>
+          <input type="number" id="seed" value="12345">
+        </label>
+      </div>
+      <div class="hint" style="margin-bottom:14px">Same seed and inputs reproduce the same answer.</div>
       <button class="go" id="run">Calculate bid values</button>
       <div class="err" id="err"></div>
     </div>
   </div>
 
-  <!-- player profiles -->
-  <div class="panel">
-    <div class="panel-head">
-      <div class="eyebrow">Player profiles</div>
-      <div class="eyebrow" id="profNote">everyone assumed to bid optimally</div>
+  <!-- player profiles (collapsed by default - rarely changed) -->
+  <details class="panel disclose">
+    <summary>
+      <span class="eyebrow">Player profiles</span>
+      <span class="eyebrow" id="profNote">everyone assumed to bid optimally</span>
+    </summary>
+    <div style="margin-top:16px">
+      <div class="scroll"><table id="profTable" style="min-width:420px">
+        <thead><tr><th>Seat</th><th>Bid bias (tricks)</th><th>Bid noise (0 = perfect)</th></tr></thead>
+        <tbody id="profileRows"></tbody>
+      </table></div>
+      <div class="hint" style="margin-top:8px">
+        Bias is how many tricks a player habitually bids above or below optimal. Noise is how
+        erratic they are, as a fraction of the round's natural spread. Both apply to the seats
+        behind you when simulating their bids, and to the seats ahead of you when reading theirs.
+      </div>
     </div>
-    <div class="scroll"><table id="profTable" style="min-width:420px">
-      <thead><tr><th>Seat</th><th>Bid bias (tricks)</th><th>Bid noise (0 = perfect)</th></tr></thead>
-      <tbody id="profileRows"></tbody>
-    </table></div>
-    <div class="hint" style="margin-top:8px">
-      Bias is how many tricks a player habitually bids above or below optimal. Noise is how
-      erratic they are, as a fraction of the round's natural spread. Both apply to the seats
-      behind you when simulating their bids, and to the seats ahead of you when reading theirs.
-    </div>
-  </div>
+  </details>
 
   <!-- results -->
   <div class="panel" id="results" style="display:none">
@@ -747,7 +752,7 @@ function runChunk(S,count){
     // every candidate bid is judged against the same cards and the same coin flips
     const raw=new Array(P).fill(0), u=new Array(P).fill(0);
     for(let s=cfg.seat+1;s<P;s++){
-      raw[s]=muFor(hands[s],cfg.trump,n,P,s)*cfg.aggression;
+      raw[s]=muFor(hands[s],cfg.trump,n,P,s);
       // box-muller: their true strength is my estimate plus my own model error
       const a=Math.max(rng(),1e-12), b2=rng();
       u[s]=Math.sqrt(-2*Math.log(a))*Math.cos(2*Math.PI*b2);
@@ -929,15 +934,11 @@ function buildPrior(){
     w.style.cssText="display:inline-flex;align-items:center;gap:5px";
     const l=document.createElement("span"); l.className="hint"; l.textContent="S"+(i+1);
     const inp=document.createElement("input");
-    inp.type="number"; inp.min=0; inp.style.width="58px"; inp.value = old[i]!==undefined ? old[i] : 0;
+    inp.type="number"; inp.min=0; inp.style.width="52px"; inp.value = old[i]!==undefined ? old[i] : 0;
     inp.oninput=()=>{ results=null; $("results").style.display="none"; };
     w.appendChild(l); w.appendChild(inp); row.appendChild(w);
   }
 }
-
-$("agg").oninput = e => {
-  $("aggHint").textContent = (+e.target.value).toFixed(2)+"\u00d7 hand strength, for the seats behind you";
-};
 
 /* Recompute the derived display (hand, round size) and validate. Returns the
    error string, empty when the setup is runnable. */
@@ -967,7 +968,7 @@ $("run").onclick = () => {
   const S=initSim({
     hand: hand.slice().sort((a,b)=>a-b), players:P, seat, trump,
     priorBids:prior, profiles:readProfiles(), iterations,
-    aggression:+$("agg").value, seed:(+$("seed").value)|0
+    seed:(+$("seed").value)|0
   });
   running=true; chartBid=null; $("results").style.display="none"; $("run").disabled=true;
   const step=()=>{
@@ -1056,7 +1057,7 @@ function renderChart(){
     + row.avgBidTotal.toFixed(2) + " tricks against " + results.n + " available."
     + (nBehind>0 ? " The "+nBehind+" seat"+(nBehind===1?"":"s")+" behind you bid "
         + row.behind.toFixed(2) + " between them." : "")
-    + " If those look off compared to your group, move the aggression slider until they match.";
+    + " If those look off compared to your group, adjust the player profiles above.";
 }
 
 (function applyDefaults(){
