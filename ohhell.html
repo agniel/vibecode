@@ -456,55 +456,89 @@ function mulberry32(a){return function(){a|=0;a=(a+0x6d2b79f5)|0;let t=Math.imul
 const vienna = (bid,won,n) => bid===won ? (bid===0 ? 5+n : 10+won) : won;
 
 /* ===== hand strength and bidding ===== */
-const COEF={
-1:{b:[-0.00912,0.95945,0.00757,0.02989,0.5152,0.02272,-0.01669,-0.20908,0.05389,0.05389],sm:0.107,so:0.2736},
-2:{b:[0.12103,0.87105,0.31439,0.169,0.84097,-0.03197,-0.07233,-0.16673,0.05215,0.02607],sm:0.1155,so:0.4202},
-3:{b:[0.06826,0.76404,0.27338,0.17091,1.29294,0.05777,-0.06859,0.1307,0.03696,0.01232],sm:0.124,so:0.518},
-4:{b:[0.05516,0.72506,0.30118,0.22928,2.28264,0.07849,-0.08052,0.27522,0.02433,0.00608],sm:0.142,so:0.5699},
-5:{b:[0.03728,0.69811,0.27241,0.27669,3.69872,0.11811,-0.086,0.39394,-0.0048,-0.00096],sm:0.1913,so:0.6154},
-6:{b:[0.02702,0.67467,0.25536,0.31532,5.98775,0.15683,-0.09325,0.49286,0.00233,0.00039],sm:0.2407,so:0.6419},
-7:{b:[0.02457,0.66648,0.26058,0.35343,15.64931,0.18624,-0.08862,0.51684,0.01434,0.00205],sm:0.29,so:0.6868},
-8:{b:[0.03306,0.65512,0.35816,0.4425,32.98061,0.15314,-0.09368,0.5046,-0.03203,-0.004],sm:0.348,so:0.7453},
-9:{b:[0.03949,0.63554,0.45488,0.49063,80.31853,0.09961,-0.09951,0.49938,0.0077,0.00086],sm:0.406,so:0.8345},
-10:{b:[0.0348,0.64631,0.45458,0.49221,180.49519,0.09198,-0.10654,0.5688,0.01011,0.00101],sm:0.464,so:0.8798}
+const COEF_T={
+1:{b:[0.02851,1.049,0.00981,0.10287,0.51897,0.02942,0.0187,-0.21593,0.05915,0.05915,-0.1614,0.02851,0.0],sm:0.107,so:0.2739},
+2:{b:[0.04167,0.83837,0.06781,0.15153,1.00104,0.09574,0.01553,-0.3613,0.05271,0.02636,0.05762,-0.07145,0.0],sm:0.1155,so:0.4234},
+3:{b:[0.04875,0.66359,0.18567,0.05762,1.56008,0.10515,-0.03943,0.01764,0.04777,0.01592,0.10694,-0.04762,0.0],sm:0.124,so:0.5171},
+4:{b:[0.05401,0.61192,0.28235,0.12581,2.42377,0.09215,-0.06632,0.1468,0.0236,0.0059,0.10542,-0.01945,-0.08389],sm:0.142,so:0.5678},
+5:{b:[0.03223,0.533,0.20367,0.13514,4.53241,0.1899,-0.04251,0.24348,-0.00646,-0.00129,0.13606,-0.06886,0.01501],sm:0.1913,so:0.6083},
+6:{b:[0.03147,0.45073,0.2347,0.08757,9.40309,0.20303,-0.04589,0.28106,-0.0055,-0.00092,0.20464,-0.06756,-0.02091],sm:0.2407,so:0.6365},
+7:{b:[0.02673,0.45597,0.27161,0.12037,17.23997,0.18281,-0.08448,0.31597,-0.01029,-0.00147,0.22855,0.00895,-0.03668],sm:0.29,so:0.6673},
+8:{b:[0.0265,0.32684,0.34517,0.11236,41.83031,0.13661,-0.13317,0.26711,-0.00035,-4e-05,0.3053,0.12998,-0.12614],sm:0.348,so:0.7244},
+9:{b:[0.03939,0.32384,0.44994,0.15689,75.96331,0.09933,-0.09546,0.25789,0.00204,0.00023,0.31979,0.04618,-0.07198],sm:0.406,so:0.7915},
+10:{b:[0.03569,0.25721,0.48135,0.11752,109.15117,0.03915,-0.12443,0.32378,-0.0303,-0.00303,0.37668,0.07301,-0.03406],sm:0.464,so:0.8283},
+11:{b:[0.03974,0.16716,0.5674,0.10659,330.99535,-0.0195,-0.13026,0.25923,0.1413,0.01285,0.45602,0.07365,-0.04557],sm:0.4918,so:0.9481},
+12:{b:[0.03451,0.14418,0.5591,0.13902,361.28443,-0.10855,-0.14497,0.32892,0.09013,0.00751,0.45316,0.09251,-0.01103],sm:0.5197,so:0.9781},
+13:{b:[0.04572,0.01682,0.73207,0.11351,1003.51842,-0.27068,-0.13772,0.19812,0.18423,0.01417,0.56753,0.06794,-0.06922],sm:0.5475,so:1.2095}
+};
+const COEF_NT={
+1:{b:[0.01445,-0.0,0.0,0.28274,0.28274,0.0,0.01445,-0.08915,0.25922,0.25922,-0.30518,0.01445,0.0],sm:0.107,so:0.3068},
+2:{b:[0.0178,-0.0,-0.0,0.32154,0.32154,-0.0,0.03561,-0.14294,0.24318,0.12159,-0.04684,-0.12588,0.0],sm:0.1155,so:0.6372},
+3:{b:[0.02251,0.0,-0.0,0.30996,0.30996,0.0,0.06754,-0.1756,0.10484,0.03495,0.08022,-0.1454,0.0],sm:0.124,so:0.7744},
+4:{b:[0.0244,-0.0,-0.0,0.28744,0.28744,0.0,0.09759,-0.17307,0.0636,0.0159,0.17366,-0.16984,-0.04409],sm:0.142,so:0.8504},
+5:{b:[0.02233,0.0,0.0,0.25645,0.25645,0.0,0.11165,-0.1766,0.1053,0.02106,0.25639,-0.16987,0.01221],sm:0.1913,so:0.9096},
+6:{b:[0.01997,0.0,0.0,0.22025,0.22025,0.0,0.11981,-0.11203,0.1551,0.02585,0.32793,-0.18644,0.02439],sm:0.2407,so:0.9782},
+7:{b:[0.01961,-0.0,-0.0,0.21349,0.21349,0.0,0.13724,-0.05331,0.14545,0.02078,0.37819,-0.23295,0.04719],sm:0.29,so:1.0228},
+8:{b:[0.02295,0.0,-0.0,0.19995,0.19995,0.0,0.1836,-0.07063,0.20765,0.02596,0.44392,-0.33373,0.09606],sm:0.348,so:1.182},
+9:{b:[0.0154,-0.0,-0.0,0.10579,0.10579,0.0,0.1386,-0.04686,0.14962,0.01662,0.5743,-0.15433,-0.20053],sm:0.406,so:1.3431},
+10:{b:[0.01448,-0.0,0.0,0.11704,0.11704,-0.0,0.14475,0.02956,0.1869,0.01869,0.57097,-0.16774,-0.21117],sm:0.464,so:1.399},
+11:{b:[0.01687,-0.0,0.0,0.07927,0.07927,0.0,0.18557,-0.09065,0.27253,0.02478,0.67508,-0.17537,-0.22598],sm:0.4918,so:1.657},
+12:{b:[0.01479,-0.0,0.0,0.07586,0.07586,0.0,0.17752,-0.00356,0.29257,0.02438,0.69258,-0.18241,-0.22679],sm:0.5197,so:1.74},
+13:{b:[0.01424,0.0,0.0,0.0933,0.0933,0.0,0.18517,0.09058,0.14646,0.01127,0.64996,-0.19702,-0.23975],sm:0.5475,so:1.8236}
 };
 
-/* Hand strength, fit against ~290k simulated hands. The hypergeometric term is what
-   makes a jack worth 0.83 when three opponents hold one card each and ~0 when they
-   hold ten: card rank only matters relative to how much of the deck is in play. */
+/* Hand strength, fit against ~310k simulated hands per trump mode, one coefficient
+   set per round size from 1 to 13. Separate tables because no-trump is a different
+   game: topTrump, trumpLen and ruff are all identically zero there, so the model
+   has to price the hand on suit length and running a suit instead.
+
+   The hypergeometric term is what makes a jack worth 0.83 when three opponents hold
+   one card each and ~0 when they hold ten: rank only matters relative to how much
+   of the deck is actually in play. */
 const LF=[0]; for(let i=1;i<=60;i++) LF[i]=LF[i-1]+Math.log(i);
 const lc=(a,b)=> (b<0||b>a) ? -Infinity : LF[a]-LF[b]-LF[a-b];
-function pNoneDealt(h,U,D){
+function pNoneDealt(h,U,D){                 // P(no higher card of the suit is in play)
   if(h===0) return 1;
   if(U-h < D) return 0;
   return Math.exp(lc(U-h,D)-lc(U,D));
+}
+function pAtMostOne(h,U,D){                 // P(card wins on the second round of its suit)
+  if(h<=1) return 1;
+  let p=pNoneDealt(h,U,D);
+  if(U-h>=D-1 && D>=1) p+=h*Math.exp(lc(U-h,D-1)-lc(U,D));
+  return Math.min(1,p);
 }
 function features(hand,trump,n,P,leadPos){
   const U=52-n, D=(P-1)*n, mine=new Set(hand);
   const bySuit=[[],[],[],[]];
   for(const c of hand) bySuit[suitOf(c)].push(c);
-  let topTrump=0, topSide=0, trumpLen=0, voids=0, singles=0, sideCards=0;
+  let topTrump=0, topSide=0, trumpLen=0, voids=0, singles=0, sideCards=0, runNext=0, longest=0;
   for(let s=0;s<4;s++){
     const cards=bySuit[s];
     if(s!==trump){
       if(cards.length===0) voids++; else if(cards.length===1) singles++;
       sideCards+=cards.length;
     } else trumpLen=cards.length;
+    if(cards.length>longest) longest=cards.length;
     for(const c of cards){
       let h=0;
       for(let r=rankOf(c)+1;r<=14;r++) if(!mine.has(s*13+(r-2))) h++;
       const top=pNoneDealt(h,U,D);
       if(s===trump) topTrump+=top; else topSide+=top;
+      runNext += pAtMostOne(h,U,D);
     }
   }
   const ruff = trump>=0 ? Math.min(trumpLen,3)*(voids+0.4*singles) : 0;
   const noTrumpOut = trump>=0 ? pNoneDealt(13-trumpLen,U,D) : 1;
   const onLead = leadPos===0 ? 1 : 0;
-  return [1,topTrump,trumpLen,topSide,topSide*noTrumpOut,ruff,sideCards,n/P,onLead,onLead/n];
+  return [1,topTrump,trumpLen,topSide,topSide*noTrumpOut,ruff,sideCards,n/P,onLead,onLead/n,
+          runNext,longest,Math.max(0,longest-3)];
 }
-/* Coefficients are fit per round size; anything past 10 reuses the n=10 set. */
-const cf=n=>COEF[n]||COEF[10];
+/* Pick the coefficient set: trump mode, then round size clamped to the fitted range. */
+let CUR_TRUMP=0;
+const cf=n=>{ const t=(CUR_TRUMP>=0?COEF_T:COEF_NT); return t[Math.min(Math.max(n,1),13)]; };
 function muFor(hand,trump,n,P,leadPos){
+  CUR_TRUMP=trump;
   const b=cf(n).b, f=features(hand,trump,n,P,leadPos);
   let m=0; for(let i=0;i<b.length;i++) m+=b[i]*f[i];
   return Math.max(0,Math.min(n,m));
@@ -539,7 +573,7 @@ const THRESH={};
    strength ranges that map to each bid. Cached per (round size, banned bid):
    the bands only move when the hook removes an option. */
 function bands(n,banned){
-  const key=n+"|"+banned;
+  const key=n+"|"+banned+"|"+(CUR_TRUMP>=0?"T":"N");
   if(THRESH[key]) return THRESH[key];
   const STEP=0.004, sw=[]; let prev=bestBidFor(0,n,banned);
   for(let mu=STEP; mu<=n+1e-9; mu+=STEP){
