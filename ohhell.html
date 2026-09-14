@@ -273,6 +273,23 @@ footer {
     </div>
   </div>
 
+  <!-- player profiles -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="eyebrow">Player profiles</div>
+      <div class="eyebrow" id="profNote">everyone assumed to bid optimally</div>
+    </div>
+    <div class="scroll"><table id="profTable" style="min-width:420px">
+      <thead><tr><th>Seat</th><th>Bid bias (tricks)</th><th>Bid noise (0 = perfect)</th></tr></thead>
+      <tbody id="profileRows"></tbody>
+    </table></div>
+    <div class="hint" style="margin-top:8px">
+      Bias is how many tricks a player habitually bids above or below optimal. Noise is how
+      erratic they are, as a fraction of the round's natural spread. Both apply to the seats
+      behind you when simulating their bids, and to the seats ahead of you when reading theirs.
+    </div>
+  </div>
+
   <!-- results -->
   <div class="panel" id="results" style="display:none">
     <div class="panel-head">
@@ -300,6 +317,96 @@ footer {
 </div>
 
 <script>
+/* =============================================================================
+   OH HELL - BID EV CALCULATOR
+   =============================================================================
+
+   WHAT IT DOES
+   You enter a real hand: your cards, the trump suit, how many players, where you
+   sit in the bidding, and any bids already made ahead of you. It then deals the
+   unseen cards tens of thousands of times, has every seat bid and play, scores
+   the whole table under Vienna rules, and reports what each candidate bid is
+   worth to you measured against the table mean.
+
+   WHY AGAINST THE MEAN
+   Money changes hands on points above or below the table average, which makes
+   the game zero sum. A bid is therefore not judged by your own score alone: a
+   trick you take is worth more when it also breaks someone else's contract, and
+   a safe bid is worth less when everyone else is making theirs too. That is why
+   the simulation scores all five seats rather than just yours.
+
+   VIENNA SCORING (Board Game Arena variant)
+     make a bid of 1 or more  ->  10 + tricks taken
+     make a bid of 0          ->  5 + tricks available in the round
+     miss any bid             ->  1 point per trick taken
+   The zero bonus grows with round size, so in a 7-trick round a made zero pays
+   12 while a made 1 pays 11. Zero bids are correspondingly strong in big rounds.
+
+   THE HOOK
+   The dealer bids last and may not choose the bid that would make the table's
+   bids total exactly the number of tricks. Exactly one number is banned, and it
+   moves every hand. When you are the dealer that bid is removed from the table
+   entirely; when the dealer is an opponent the model shifts them off it.
+
+   HOW THE MODEL IS PUT TOGETHER, IN LAYERS
+
+   1. HAND STRENGTH (muFor)
+      A linear model fit against roughly 290,000 simulated hands, one coefficient
+      set per round size. Its key input is hypergeometric: the chance that no
+      higher card of a suit is in play at all. That is what makes a jack worth
+      0.83 tricks when three opponents hold one card each and nearly nothing when
+      they hold ten. Card rank only means something relative to how much of the
+      deck is actually dealt.
+
+   2. BIDDING (bidAt)
+      Given a hand strength, pick the bid that maximises Vienna EV. Not a rounded
+      trick estimate - the zero bonus means the 0-to-1 switch sits at 0.46 tricks
+      in a 1-card round and 0.60 in a 7-card round, and that falls out of the
+      scoring rather than being written in by hand.
+
+   3. READING THE AUCTION (bidLikelihood)
+      The bids made ahead of you are evidence about where the high cards are. Each
+      simulated deal is weighted by how plausible those bids look given the hands
+      that deal produced. Deals that put the trump ace in the undealt stock get
+      down-weighted when three players have claimed six tricks, and up-weighted
+      when three players have passed. This is what lets the tool tell 2/2/2 apart
+      from 3/3/3 instead of returning identical answers.
+
+   TWO DIFFERENT SIGMAS, WHICH IS EASY TO CONFUSE
+      sigOutcome - deal luck. How much the tricks you actually take vary around
+                   your hand's strength. The bidder faces this too, so it drives
+                   their own EV calculation.
+      sigModel   - my error estimating someone else's strength from their cards.
+                   Much smaller: in small rounds it is only 5-6% of the total
+                   variance. This is what drives the likelihood above.
+      Using the combined figure for the likelihood was a real bug - it made the
+      auction almost uninformative, because every hand looked capable of any bid.
+
+   PLAYER PROFILES
+   Per seat, two numbers, both defaulting to zero meaning "bids optimally":
+      bias  - tricks this player habitually bids above (+) or below (-) optimal
+      noise - how erratic they are, as a fraction of the round's outcome spread
+   The same profile is used in both directions for a seat: it governs how a seat
+   behind you is simulated, and how a seat ahead of you is read. These are meant
+   to be fit from logged hands rather than guessed at.
+
+   EFFECTIVE SAMPLE SIZE
+   Once deals carry different weights, the raw deal count stops describing your
+   precision. ESS = (sum w)^2 / sum(w^2) answers "how many equally weighted deals
+   would be as informative as this weighted pile". Confidence intervals scale with
+   1/sqrt(ESS), not 1/sqrt(deals). If ESS collapses the results are withheld
+   rather than shown, because an auction the model cannot reconcile produces
+   numbers that are pure noise.
+
+   KNOWN LIMITATIONS
+   - The play policy is a greedy heuristic with shed planning, not a solver. It
+     is the weakest component and the one most worth improving.
+   - Side-suit aces are undervalued in small rounds (0.27 against a true 0.40 at
+     n=1); a linear model on these features cannot close that gap.
+   - Profiles default to optimal, so unusual auctions can exhaust the sample and
+     trigger the ESS guard. Adding noise to those seats brings them back.
+   ============================================================================= */
+
 /* ===== cards: card = suit*13 + rankIndex, rankIndex 0..12 => rank 2..14 ===== */
 const GLYPH = ["\u2660","\u2665","\u2666","\u2663"];
 const RANKL = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
@@ -308,6 +415,8 @@ const suitOf = c => (c/13)|0;
 const rankOf = c => (c%13)+2;
 const isRed  = s => s===1 || s===2;
 
+/* Seeded PRNG. A fixed seed means the same hand always returns the same answer,
+   which matters when you want to compare two runs and know the difference is real. */
 function mulberry32(a){return function(){a|=0;a=(a+0x6d2b79f5)|0;let t=Math.imul(a^(a>>>15),1|a);
   t=(t+Math.imul(t^(t>>>7),61|t))^t;return ((t^(t>>>14))>>>0)/4294967296;};}
 
@@ -361,6 +470,7 @@ function features(hand,trump,n,P,leadPos){
   const onLead = leadPos===0 ? 1 : 0;
   return [1,topTrump,trumpLen,topSide,topSide*noTrumpOut,ruff,sideCards,n/P,onLead,onLead/n];
 }
+/* Coefficients are fit per round size; anything past 10 reuses the n=10 set. */
 const cf=n=>COEF[n]||COEF[10];
 function muFor(hand,trump,n,P,leadPos){
   const b=cf(n).b, f=features(hand,trump,n,P,leadPos);
@@ -375,6 +485,8 @@ const erf=x=>{const s=x<0?-1:1; x=Math.abs(x);
   const t=1/(1+0.3275911*x);
   return s*(1-((((1.061405429*t-1.453152027)*t+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x));};
 const Phi=z=> z<=-8?0 : z>=8?1 : 0.5*(1+erf(z/Math.SQRT2));
+/* P(taking exactly k tricks) given a hand strength, as a discretised gaussian.
+   Used by the bidder to price each candidate bid under Vienna. */
 function trickDist(mu,n,sig){
   const p=[]; let tot=0;
   for(let k=0;k<=n;k++){ const w=Math.exp(-((k-mu)*(k-mu))/(2*sig*sig)); p.push(w); tot+=w; }
@@ -391,6 +503,9 @@ function bestBidFor(mu,n,banned){
   return best;
 }
 const THRESH={};
+/* The EV-optimal bid is a step function of hand strength, so precompute the
+   strength ranges that map to each bid. Cached per (round size, banned bid):
+   the bands only move when the hook removes an option. */
 function bands(n,banned){
   const key=n+"|"+banned;
   if(THRESH[key]) return THRESH[key];
@@ -409,13 +524,22 @@ function bidAt(mu,n,banned){
   for(const bd of bands(n,banned)) if(mu>=bd.lo && mu<bd.hi) return bd.bid;
   return bands(n,banned)[bands(n,banned).length-1].bid;
 }
-/* How far a real player's bid strays from the EV-optimal one. Scaled to the
-   outcome spread, because a 1-card round is easy to judge and a 10-card round
-   is not. This is the number a few hundred logged hands would actually fit. */
-const PLAYER_NOISE = 0.35;
-function sigLik(n){ const c=cf(n); return Math.sqrt(c.sm*c.sm + (PLAYER_NOISE*c.so)**2); }
-function bidLikelihood(muHat,n,banned,obs){
-  const sig=sigLik(n); let p=0;
+/* Per-player profile.
+     bias  - tricks this player habitually bids above (+) or below (-) optimal
+     noise - how far their bid strays from EV-optimal, as a fraction of the
+             round's outcome spread. 0 means they bid perfectly every time, so
+             the only uncertainty left is my own error estimating their hand.
+   Both default to "plays optimally" until scoresheet data says otherwise. */
+const PROFILE_DEFAULT = {bias:0, noise:0};
+function profOf(cfg,seat){ return (cfg.profiles && cfg.profiles[seat]) || PROFILE_DEFAULT; }
+function sigLik(n,prof){
+  const c=cf(n), pn=(prof||PROFILE_DEFAULT).noise;
+  return Math.sqrt(c.sm*c.sm + (pn*c.so)*(pn*c.so));
+}
+function bidLikelihood(muHat,n,banned,obs,prof){
+  const pr=prof||PROFILE_DEFAULT;
+  muHat += pr.bias;                       // they bid as if this strong
+  const sig=sigLik(n,pr); let p=0;
   for(const bd of bands(n,banned)){
     if(bd.bid!==obs) continue;
     const lo = bd.lo<=0 ? -Infinity : (bd.lo-muHat)/sig;
@@ -498,6 +622,12 @@ function playHand(hands,bids,trump,P,n){
    tricks are already claimed and R players are still to bid, a bidder's share of
    what is left scales by P(n-B)/(R*n) against the prior. A round already sold out
    gets shaded hard; an undersold one gets a damped nudge upward. */
+/* How a player behind you shades their own estimate after hearing the auction.
+   Tricks are conserved: if B of the n tricks are already claimed and R players
+   are still to bid, their share of what is left scales by P(n-B)/(R*n) against
+   the prior. A round already sold out is shaded hard; an undersold one gets a
+   damped nudge up, damped because the full correction steers the dealer onto
+   the hooked number far too often. */
 function auctionFactor(n,P,B,R){
   const free = n - B;
   if(free <= 0) return Math.max(0, 1 + free/n);
@@ -506,6 +636,8 @@ function auctionFactor(n,P,B,R){
 }
 
 /* ===== simulation ===== */
+/* Set up a run: work out which bids are legal, which cards are unseen, and
+   allocate one accumulator per candidate bid. */
 function initSim(cfg){
   const n=cfg.hand.length, P=cfg.players;
   const inHand=new Set(cfg.hand), pool=[];
@@ -520,6 +652,12 @@ function initSim(cfg){
   };
 }
 
+/* The main loop, run in slices so the page stays responsive.
+   Per deal: shuffle the unseen cards, weight the deal by how well it explains
+   the bids ahead of you, then play out every candidate bid you could make
+   against that same deal. Reusing one deal across all candidates is deliberate:
+   the differences between bids are far more precise than any single row's
+   confidence interval suggests, because the deal luck is held constant. */
 function runChunk(S,count){
   const {cfg,n,P,pool,cands,rng}=S, nOpp=P-1;
   for(let it=0; it<count && S.done<cfg.iterations; it++, S.done++){
@@ -533,7 +671,7 @@ function runChunk(S,count){
     let w=1, Bo=0;
     for(let s=0;s<cfg.seat;s++){
       const mu = muFor(hands[s],cfg.trump,n,P,s)*auctionFactor(n,P,Bo,P-s);
-      w *= bidLikelihood(mu,n,-1,cfg.priorBids[s]);
+      w *= bidLikelihood(mu,n,-1,cfg.priorBids[s],profOf(cfg,s));
       Bo += cfg.priorBids[s];
     }
     S.wSum+=w; S.wSum2+=w*w;
@@ -555,7 +693,9 @@ function runChunk(S,count){
       for(let s=0;s<cfg.seat;s++){ bids[s]=cfg.priorBids[s]; B+=bids[s]; }
       bids[cfg.seat]=cands[ci]; B+=cands[ci];
       for(let s=cfg.seat+1;s<P;s++){
-        const e=Math.max(0, Math.min(n, raw[s]*auctionFactor(n,P,B,P-s) + u[s]*sigLik(n)));
+        const pr=profOf(cfg,s);
+        const e=Math.max(0, Math.min(n,
+          raw[s]*auctionFactor(n,P,B,P-s) + pr.bias + u[s]*sigLik(n,pr)));
         const banned = (s===P-1) ? n-B : -1;    // only the dealer is hooked
         const b=bidAt(e,n,banned);
         bids[s]=b; B+=b; behind+=b;
@@ -576,6 +716,8 @@ function runChunk(S,count){
   }
 }
 
+/* Turn the weighted accumulators into per-bid figures. Everything divides by
+   total weight rather than deal count, and errors scale with ESS. */
 function finalize(S){
   const N=Math.max(S.wSum,1e-12);                      // total weight, not deal count
   const ess=S.wSum2>0 ? (S.wSum*S.wSum)/S.wSum2 : 0;   // effective sample size
@@ -599,6 +741,7 @@ const DEFAULT_TRUMP = 2;                                     // diamonds
 const DEFAULT_SEAT  = 3;                                     // seat 4 of 5
 const DEFAULT_PRIOR = [0, 1, 2];
 let hand = DEFAULT_HAND.slice(), trump = DEFAULT_TRUMP, results = null, chartBid = null, running = false;
+let profileVals = {};        // seat index -> {bias, noise}; empty means everyone optimal
 
 // deck
 (function buildDeck(){
@@ -665,9 +808,52 @@ function buildSeats(){
     sel.appendChild(o);
   }
   sel.value=cur;
-  sel.onchange=()=>{ buildPrior(); results=null; $("results").style.display="none"; refresh(); };
-  buildPrior();
+  sel.onchange=()=>{ buildPrior(); buildProfiles(); results=null; $("results").style.display="none"; refresh(); };
+  buildPrior(); buildProfiles();
 }
+/* Render the per-seat profile table. Your own seat is skipped - the tool is
+   evaluating every bid you could make, so there is nothing to model about you. */
+function buildProfiles(){
+  const P=+$("players").value, seat=+$("seat").value, tb=$("profileRows");
+  tb.innerHTML="";
+  let modelled=0;
+  for(let i=0;i<P;i++){
+    const tr=document.createElement("tr");
+    const label = i===P-1 ? ("Seat "+(i+1)+" (dealer)") : ("Seat "+(i+1));
+    if(i===seat){
+      tr.innerHTML='<td style="color:var(--faint)">'+label
+        +'</td><td colspan="2" style="color:var(--faint)">you \u2014 not modelled</td>';
+      tb.appendChild(tr); continue;
+    }
+    modelled++;
+    const v = profileVals[i] || {bias:0, noise:0};
+    tr.innerHTML='<td>'+label+'</td>'
+      +'<td><input type="number" step="0.1" min="-2" max="2" value="'+v.bias+'" data-seat="'+i+'" data-k="bias" style="width:78px"></td>'
+      +'<td><input type="number" step="0.05" min="0" max="1.5" value="'+v.noise+'" data-seat="'+i+'" data-k="noise" style="width:78px"></td>';
+    tb.appendChild(tr);
+  }
+  tb.querySelectorAll("input").forEach(inp=>{
+    inp.oninput=()=>{
+      const i=+inp.dataset.seat;
+      profileVals[i]=profileVals[i]||{bias:0,noise:0};
+      profileVals[i][inp.dataset.k]=+inp.value||0;
+      results=null; $("results").style.display="none";
+      syncProfNote();
+    };
+  });
+  syncProfNote();
+}
+function syncProfNote(){
+  const dirty=Object.values(profileVals).some(v=>v && (v.bias!==0 || v.noise!==0));
+  $("profNote").textContent = dirty ? "custom profiles in use" : "everyone assumed to bid optimally";
+}
+/* Collect the profile inputs into the array the engine expects, one per seat. */
+function readProfiles(){
+  const P=+$("players").value, out=[];
+  for(let i=0;i<P;i++){ const v=profileVals[i]||{}; out.push({bias:+v.bias||0, noise:+v.noise||0}); }
+  return out;
+}
+
 function buildPrior(){
   const seat=+$("seat").value, row=$("priorRow"), old=[...row.querySelectorAll("input")].map(i=>+i.value);
   row.innerHTML="";
@@ -687,6 +873,8 @@ $("agg").oninput = e => {
   $("aggHint").textContent = (+e.target.value).toFixed(2)+"\u00d7 hand strength, for the seats behind you";
 };
 
+/* Recompute the derived display (hand, round size) and validate. Returns the
+   error string, empty when the setup is runnable. */
 function refresh(){
   const n=hand.length, P=+$("players").value;
   $("handCount").textContent = n===0 ? "no cards selected" : (n+" card"+(n===1?"":"s")+" \u2192 "+n+"-trick round");
@@ -712,7 +900,7 @@ $("run").onclick = () => {
   const iterations=+$("iters").value;
   const S=initSim({
     hand: hand.slice().sort((a,b)=>a-b), players:P, seat, trump,
-    priorBids:prior, iterations,
+    priorBids:prior, profiles:readProfiles(), iterations,
     aggression:+$("agg").value, seed:(+$("seed").value)|0
   });
   running=true; chartBid=null; $("results").style.display="none"; $("run").disabled=true;
@@ -728,6 +916,9 @@ $("run").onclick = () => {
   setTimeout(step,0);
 };
 
+/* Draw the results table. Bids the hand can never hit are tagged rather than
+   hidden: a guaranteed bust still scores a point per trick, which can beat the
+   table mean when everyone else busts harder. */
 function render(){
   $("results").style.display="block";
   if(results.ess < 250){
@@ -767,6 +958,8 @@ function render(){
   renderChart();
 }
 
+/* Trick distribution for whichever bid is selected, plus the calibration line.
+   Both track the selected bid, not the recommended one. */
 function renderChart(){
   const shown = chartBid===null ? results.best : chartBid;
   const row = results.rows.find(r=>r.bid===shown);
@@ -802,7 +995,7 @@ function renderChart(){
 
 (function applyDefaults(){
   $("seat").value = String(DEFAULT_SEAT);
-  buildPrior();
+  buildPrior(); buildProfiles();
   const inp = [...$("priorRow").querySelectorAll("input")];
   DEFAULT_PRIOR.forEach((v,i)=>{ if(inp[i]) inp[i].value = String(v); });
 })();
