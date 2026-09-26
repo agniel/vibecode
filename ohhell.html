@@ -251,6 +251,17 @@ footer {
 .tabs button:focus-visible { outline: 2px solid rgba(0,255,160,.45); outline-offset: 1px; }
 [hidden] { display: none !important; }
 
+/* small action button (random deal, spreadsheet link) */
+.mini {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px;
+  background: rgba(0,255,160,.08); border: 1px solid rgba(0,255,160,.30); border-radius: 3px;
+  color: var(--green); font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: .16em;
+  text-transform: uppercase; text-decoration: none; cursor: pointer; transition: background .15s;
+}
+.mini:hover { background: rgba(0,255,160,.18); }
+.mini:focus-visible { outline: 2px solid rgba(0,255,160,.45); outline-offset: 1px; }
+.headright { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+
 /* void odds */
 .vcontrols { display: flex; flex-wrap: wrap; gap: 18px 24px; margin-bottom: 18px; }
 .vgroup { display: flex; flex-direction: column; gap: 6px; }
@@ -295,10 +306,14 @@ footer {
   <div class="panel">
     <div class="panel-head">
       <div class="eyebrow">Your hand</div>
-      <div class="eyebrow" id="handCount">no cards selected</div>
+      <div class="headright">
+        <div class="eyebrow" id="handCount">no cards selected</div>
+        <button class="mini" id="randomDeal" title="Deal yourself a random hand and fill in model bids for the seats ahead of you. Trump, players and seat stay as set.">Random deal</button>
+      </div>
     </div>
     <div class="deck"><div class="deck-inner" id="deck"></div></div>
     <div class="hand" id="handOut"></div>
+    <div class="hint">Random deal keeps your current round size (a random size if no cards are selected) and bids the seats ahead of you with the same model the simulation uses to read them.</div>
   </div>
 
   <!-- setup -->
@@ -395,7 +410,10 @@ footer {
     <div class="panel">
       <div class="panel-head">
         <div class="eyebrow">Your deal</div>
-        <div class="eyebrow" id="vsetup"></div>
+        <div class="headright">
+          <div class="eyebrow" id="vsetup"></div>
+          <a class="mini" href="oh-hell-void-odds.xlsx" download>&#8595; Excel tables</a>
+        </div>
       </div>
       <div class="vread">
         <div><div class="num" id="vAny">&ndash;</div><div class="hint">chance someone at the table is void in a suit</div></div>
@@ -1143,6 +1161,55 @@ refresh();
 </script>
 <script>
 /* =============================================================================
+   RANDOM DEAL
+   Deals you a random hand from a fresh deck and fills in the bids ahead of you.
+   Trump, player count and seat are left exactly as the user set them. Round size
+   stays whatever is selected now; with no cards selected it is random.
+   The seats ahead are dealt real hands from the rest of the deck and bid with the
+   same generative model the simulation inverts when it reads their bids:
+     strength = model estimate x auction factor + profile bias + model error
+     bid      = the EV-optimal bid at that strength (never hooked: the dealer
+                always bids last, so no seat ahead of you is the dealer)
+   Uses Math.random, not the run seed, so the seed still controls only the run.
+   ============================================================================= */
+(function(){
+  const gauss = () => { const a = Math.max(Math.random(), 1e-12), b = Math.random();
+    return Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * b); };
+
+  $("randomDeal").addEventListener("click", () => {
+    if (running) return;
+    const P = +$("players").value, seat = +$("seat").value, maxN = Math.floor(52 / P);
+    const n = (hand.length >= 1 && hand.length <= maxN) ? hand.length : 1 + Math.floor(Math.random() * maxN);
+
+    const deck = [...Array(52).keys()];
+    for (let i = 51; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+    const hands = []; for (let s = 0; s < P; s++) hands.push(deck.slice(s * n, s * n + n));
+
+    // your hand -> the card picker
+    hand = hands[seat].slice();
+    document.querySelectorAll("#deck .ct").forEach(b => b.classList.toggle("on", hand.includes(+b.dataset.card)));
+
+    // bids ahead of you
+    const profiles = readProfiles(); let Bo = 0; const bids = [];
+    for (let s = 0; s < seat; s++) {
+      const prof = profiles[s] || PROFILE_DEFAULT;
+      const muHat = muFor(hands[s], trump, n, P, s) * auctionFactor(n, P, Bo, P - s);
+      const strength = Math.max(0, Math.min(n, muHat + prof.bias + sigLik(n, prof) * gauss()));
+      const b = bidAt(strength, n, -1);
+      bids.push(b); Bo += b;
+    }
+    buildPrior();
+    [...$("priorRow").querySelectorAll("input")].forEach((inp, i) => inp.value = bids[i]);
+
+    results = null; $("results").style.display = "none";
+    refresh();
+    document.dispatchEvent(new CustomEvent("ohhell:deal"));
+  });
+})();
+</script>
+
+<script>
+/* =============================================================================
    VOID ODDS TAB
    Exact probabilities (see void_odds.py) that exactly j of N players hold
    exactly / at least k voids, for 3-7 players and every legal hand size.
@@ -1282,6 +1349,7 @@ const VOID = {"3,1,exactly,0":[1.0,0.0,0.0,0.0],"3,1,exactly,1":[1.0,0.0,0.0,0.0
   $("players").addEventListener("change", () => { if (!$("tab-voids").hidden) openVoids(); });
   document.getElementById("deck").addEventListener("click", () => setTimeout(() => { if (!$("tab-voids").hidden) readout(); }, 0));
 
+  document.addEventListener("ohhell:deal", () => { if (!$("tab-voids").hidden) openVoids(); });
   if (location.hash === "#voids") show("voids", false);
 })();
 </script>
