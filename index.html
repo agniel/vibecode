@@ -225,6 +225,14 @@ h1 span {
 .card.amber .card-btn { background: rgba(255,136,64,.12); color: var(--orange); border-color: rgba(255,136,64,.30); }
 .card.amber .card-btn:hover { background: rgba(255,136,64,.22); }
 
+.card.violet .card-title span { color: #b48cff; }
+.card.violet { border-color: rgba(180,140,255,.16); background: rgba(180,140,255,.04); }
+.card.violet:hover { border-color: rgba(180,140,255,.34); background: rgba(180,140,255,.09); }
+.card.violet .card-eyebrow { color: rgba(180,140,255,.60); }
+.card.violet .tag { background: rgba(180,140,255,.08); color: rgba(180,140,255,.70); border-color: rgba(180,140,255,.18); }
+.card.violet .card-btn { background: rgba(180,140,255,.12); color: #b48cff; border-color: rgba(180,140,255,.32); }
+.card.violet .card-btn:hover { background: rgba(180,140,255,.22); }
+
 /* ── Footer ── */
 footer {
   margin-top: 72px;
@@ -315,6 +323,28 @@ footer {
       </div>
       <div class="card-btn">
         <svg viewBox="0 0 24 24"><path d="M12 3c-1.8 3.4-6 5.6-6 9.2A4.3 4.3 0 0 0 12 16a4.3 4.3 0 0 0 6-3.8C18 8.6 13.8 6.4 12 3Z"/><path d="M12 16v5"/><path d="M9.5 21h5"/></svg>
+        Launch Tool
+      </div>
+    </a>
+
+    <!-- Playlist Analytics -->
+    <a class="card violet" href="playlists.html">
+      <div class="card-eyebrow">Tool 04 &middot; Music</div>
+      <div class="card-title">Playlist <span>Analytics</span></div>
+      <p class="card-desc">
+        Dashboard for Spotify playlists, preloaded with Mix a Denny. A play-through timeline sized by track
+        length, songs per artist, track-length spread, and mix-flow checks for repeat artists. Drop in an
+        Exportify CSV or sign in with Spotify to add date-added and release-year timelines, albums, decades,
+        popularity, genres, and an energy curve.
+      </p>
+      <div class="card-tags">
+        <span class="tag">Spotify</span>
+        <span class="tag">Interactive Timeline</span>
+        <span class="tag">Exportify CSV</span>
+        <span class="tag">Mix Flow</span>
+      </div>
+      <div class="card-btn">
+        <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
         Launch Tool
       </div>
     </a>
