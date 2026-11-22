@@ -392,7 +392,7 @@ function renderKPIs(){
   const lens=T.map(t=>t.durationMs);
   const k=[
     ["Tracks",T.length,`${fmtLong(tot)} total`],
-    ["Unique artists",ac.size,`${Math.round(100*[...ac.values()].filter(v=>v===1).length/Math.max(1,ac.size))}% appear once`],
+    ["Unique artists",new Set(T.map(t=>key(t.artists[0]))).size,`lead artists · ${ac.size} incl. featured`],
     ["Unique albums",D.has.album?albums.size:"—",D.has.album?`${(T.length/Math.max(1,albums.size)).toFixed(2)} tracks per album`:"needs CSV import"],
     ["Repeat artists",repeat,top?`Top: ${D.artistNames.get(top[0])} (${top[1]})`:""],
     ["Avg track length",T.length?fmtDur(tot/T.length):"—",lens.length?`median ${fmtDur(median(lens))} · longest ${fmtDur(Math.max(...lens))}`:""],
