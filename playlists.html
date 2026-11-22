@@ -105,28 +105,6 @@ a{color:var(--accent)}
     </div>
   </header>
 
-  <div class="notice" id="coverage" hidden></div>
-
-  <details class="import card" id="importPanel">
-    <summary>Load a playlist</summary>
-    <div class="importgrid">
-      <div>
-        <h2 style="font-size:14px;margin:0 0 6px">1 · Exportify CSV <span class="badge">works anywhere</span></h2>
-        <div class="small" style="margin-bottom:8px">Export the playlist at <a href="https://exportify.app" target="_blank" rel="noopener">exportify.app</a> (sign in with Spotify → Export), then drop the CSV here. Brings in added dates, albums, release dates, popularity, genres and audio features.</div>
-        <div class="drop" id="drop">Drop a .csv here, or <label style="color:var(--accent);cursor:pointer;text-decoration:underline">choose a file<input type="file" id="file" accept=".csv,text/csv" hidden></label></div>
-        <div class="status" id="csvStatus"></div>
-      </div>
-      <div>
-        <h2 style="font-size:14px;margin:0 0 6px">2 · Spotify sign-in <span class="badge">self-hosted only</span></h2>
-        <div class="small" style="margin-bottom:8px">Needs a Spotify developer app's Client ID with this redirect URI registered: <code id="redirUri"></code>. Works when this file is served from your own site (e.g. GitHub Pages); sandboxed viewers block the calls.</div>
-        <label class="field">Client ID<input type="text" id="clientId" placeholder="32-character client ID"></label>
-        <label class="field">Playlist URL or ID<input type="text" id="plUrl" placeholder="https://open.spotify.com/playlist/…"></label>
-        <button class="primary" id="btnConnect">Connect &amp; load</button>
-        <div class="status" id="apiStatus"></div>
-      </div>
-    </div>
-  </details>
-
   <div class="filters" id="filters"></div>
   <div class="kpis" id="kpis"></div>
 
@@ -187,6 +165,29 @@ a{color:var(--accent)}
     </div>
     <div class="tablewrap"><table id="tbl"></table></div>
   </div>
+  <div style="height:14px"></div>
+  <div class="notice" id="coverage" hidden></div>
+
+  <details class="import card" id="importPanel">
+    <summary>Load a playlist</summary>
+    <div class="importgrid">
+      <div>
+        <h2 style="font-size:14px;margin:0 0 6px">1 · Exportify CSV <span class="badge">works anywhere</span></h2>
+        <div class="small" style="margin-bottom:8px">Export the playlist at <a href="https://exportify.app" target="_blank" rel="noopener">exportify.app</a> (sign in with Spotify → Export), then drop the CSV here. Brings in added dates, albums, release dates, popularity, genres and audio features.</div>
+        <div class="drop" id="drop">Drop a .csv here, or <label style="color:var(--accent);cursor:pointer;text-decoration:underline">choose a file<input type="file" id="file" accept=".csv,text/csv" hidden></label></div>
+        <div class="status" id="csvStatus"></div>
+      </div>
+      <div>
+        <h2 style="font-size:14px;margin:0 0 6px">2 · Spotify sign-in <span class="badge">self-hosted only</span></h2>
+        <div class="small" style="margin-bottom:8px">Needs a Spotify developer app's Client ID with this redirect URI registered: <code id="redirUri"></code>. Works when this file is served from your own site (e.g. GitHub Pages); sandboxed viewers block the calls.</div>
+        <label class="field">Client ID<input type="text" id="clientId" placeholder="32-character client ID"></label>
+        <label class="field">Playlist URL or ID<input type="text" id="plUrl" placeholder="https://open.spotify.com/playlist/…"></label>
+        <button class="primary" id="btnConnect">Connect &amp; load</button>
+        <div class="status" id="apiStatus"></div>
+      </div>
+    </div>
+  </details>
+
   <div class="small" style="margin-top:16px;text-align:center" id="foot"></div>
 </div>
 <div id="tip"></div>
