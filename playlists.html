@@ -105,28 +105,6 @@ a{color:var(--accent)}
     </div>
   </header>
 
-  <div class="notice" id="coverage" hidden></div>
-
-  <details class="import card" id="importPanel">
-    <summary>Load a playlist</summary>
-    <div class="importgrid">
-      <div>
-        <h2 style="font-size:14px;margin:0 0 6px">1 · Exportify CSV <span class="badge">works anywhere</span></h2>
-        <div class="small" style="margin-bottom:8px">Export the playlist at <a href="https://exportify.app" target="_blank" rel="noopener">exportify.app</a> (sign in with Spotify → Export), then drop the CSV here. Brings in added dates, albums, release dates, popularity, genres and audio features.</div>
-        <div class="drop" id="drop">Drop a .csv here, or <label style="color:var(--accent);cursor:pointer;text-decoration:underline">choose a file<input type="file" id="file" accept=".csv,text/csv" hidden></label></div>
-        <div class="status" id="csvStatus"></div>
-      </div>
-      <div>
-        <h2 style="font-size:14px;margin:0 0 6px">2 · Spotify sign-in <span class="badge">self-hosted only</span></h2>
-        <div class="small" style="margin-bottom:8px">Needs a Spotify developer app's Client ID with this redirect URI registered: <code id="redirUri"></code>. Works when this file is served from your own site (e.g. GitHub Pages); sandboxed viewers block the calls.</div>
-        <label class="field">Client ID<input type="text" id="clientId" placeholder="32-character client ID"></label>
-        <label class="field">Playlist URL or ID<input type="text" id="plUrl" placeholder="https://open.spotify.com/playlist/…"></label>
-        <button class="primary" id="btnConnect">Connect &amp; load</button>
-        <div class="status" id="apiStatus"></div>
-      </div>
-    </div>
-  </details>
-
   <div class="filters" id="filters"></div>
   <div class="kpis" id="kpis"></div>
 
@@ -187,6 +165,29 @@ a{color:var(--accent)}
     </div>
     <div class="tablewrap"><table id="tbl"></table></div>
   </div>
+  <div style="height:14px"></div>
+  <div class="notice" id="coverage" hidden></div>
+
+  <details class="import card" id="importPanel">
+    <summary>Load a playlist</summary>
+    <div class="importgrid">
+      <div>
+        <h2 style="font-size:14px;margin:0 0 6px">1 · Exportify CSV <span class="badge">works anywhere</span></h2>
+        <div class="small" style="margin-bottom:8px">Export the playlist at <a href="https://exportify.app" target="_blank" rel="noopener">exportify.app</a> (sign in with Spotify → Export), then drop the CSV here. Brings in added dates, albums, release dates, popularity, genres and audio features.</div>
+        <div class="drop" id="drop">Drop a .csv here, or <label style="color:var(--accent);cursor:pointer;text-decoration:underline">choose a file<input type="file" id="file" accept=".csv,text/csv" hidden></label></div>
+        <div class="status" id="csvStatus"></div>
+      </div>
+      <div>
+        <h2 style="font-size:14px;margin:0 0 6px">2 · Spotify sign-in <span class="badge">self-hosted only</span></h2>
+        <div class="small" style="margin-bottom:8px">Needs a Spotify developer app's Client ID with this redirect URI registered: <code id="redirUri"></code>. Works when this file is served from your own site (e.g. GitHub Pages); sandboxed viewers block the calls.</div>
+        <label class="field">Client ID<input type="text" id="clientId" placeholder="32-character client ID"></label>
+        <label class="field">Playlist URL or ID<input type="text" id="plUrl" placeholder="https://open.spotify.com/playlist/…"></label>
+        <button class="primary" id="btnConnect">Connect &amp; load</button>
+        <div class="status" id="apiStatus"></div>
+      </div>
+    </div>
+  </details>
+
   <div class="small" style="margin-top:16px;text-align:center" id="foot"></div>
 </div>
 <div id="tip"></div>
@@ -197,71 +198,71 @@ const SEED = {
   name: "Mix a Denny", owner: "jagniel", id: "28TIokK7OIgpbk7ytedqrf",
   source: "Spotify public embed, 2026-11-22",
   tracks: [
-["How Lucky",["Kurt Vile", "John Prine"],203],
-["Drown - 2015 Remaster",["Son Volt"],199],
-["Kool On",["The Roots", "Greg Porn", "Truck North"],228],
-["Take Me to Lake Charles",["Shinyribs"],196],
-["I Don't Know - EP Version",["The Sheepdogs"],190],
-["Fish and Whistle",["John Prine"],194],
-["Save It for Later - 2012 Remaster",["The English Beat"],213],
-["Calvin",["The Jon Spencer Blues Explosion"],182],
-["You Ain't Goin' Nowhere",["Chicken Wire Empire"],185],
-["Piece of Work",["Will Kimbrough"],193],
-["Roll Um Easy - 2023 Remaster",["Little Feat"],153],
-["Feelin' Good Again",["Robert Earl Keen"],196],
-["Join Ice",["Jesse Welles"],170],
-["Amarillo Highway (for Dave Hickey)",["Terry Allen"],240],
-["Wave of Mutilation",["Pixies"],123],
-["The Underdog",["Spoon"],222],
-["The Galway Girl",["Steve Earle"],185],
-["Purple Hat",["SOFI TUKKER"],178],
-["Comin' Thru",["Chali 2na"],209],
-["Take Me Home Country Roads",["Toots & The Maytals"],197],
-["I Can't Complain - Live",["Todd Snider"],213],
-["Personality Crisis",["New York Dolls"],221],
-["clean elvis",["Dan Reeder"],164],
-["Link Of Chain",["Chris Smither"],290],
-["Cape Cod Kwassa Kwassa",["Vampire Weekend"],214],
-["Shadrach, Meshach, and Abednego",["Asylum Street Spankers"],162],
-["This Too Shall Pass",["OK Go"],188],
-["Jazz on the Autobahn",["The Felice Brothers"],272],
-["Shake a Bone",["Son Of Dave"],184],
-["The Nerd Reich",["Jesse Welles"],199],
-["Take Your Mama",["Scissor Sisters"],271],
-["Go It Alone",["Beck"],248],
-["Messenger",["Jeff Darko", "Hektor Red"],210],
-["Rock Your Baby",["Eddie 9V"],202],
-["Still Getting It Done",["Ghost of Vroom", "Mike Doughty", "Andrew Livingston"],162],
-["Ooh La La",["Goldfrapp"],204],
-["Booty City",["Black Joe Lewis & The Honeybears"],161],
-["Frankie's Gun!",["The Felice Brothers"],246],
-["Sundown",["Elwood"],239],
-["Situation",["Johnny Blue Skies"],337],
-["KD and Lunch Meat",["Boy Golden"],260],
-["Jealous Guy - Live at the Bitter End, New York City, 1971",["Donny Hathaway"],318],
-["Stand by My Girl",["Dan Auerbach"],233],
-["Run On For A Long Time",["The Blind Boys Of Alabama"],204],
-["Cold Dog Soup",["Guy Clark"],215],
-["Spinnin' On This Rock",["Ramsay Midwood"],270],
-["People Everyday - Metamorphosis Mix",["Arrested Development"],296],
-["NEW DORP. NEW YORK",["SBTRKT", "Ezra Koenig"],180],
-["Fire And Brimstone",["Link Wray"],258],
-["Lord Have Mercy",["Durand Jones"],241],
-["Coffee Cold",["Galt MacDermot"],205],
-["The Man Was Burning",["Jake Blount"],155],
-["Breakdown - Live",["Spoon"],163],
-["What About Now",["Scott McMicken and THE EVER-EXPANDING"],201],
-["Kissing My Love",["Bill Withers"],231],
-["Work It Out",["Jurassic 5", "Dave Matthews Band"],232],
-["One Meat Ball",["Josh White"],181],
-["Chapstick",["COIN"],193],
-["Dublin Blues",["Guy Clark"],269],
-["Lodi",["Jeffrey Foucault"],173],
-["No Love Today",["Chris Smither"],284],
-["Rent I Pay",["Spoon"],189],
-["Looking at the World Through a Windshield",["Son Volt"],188],
-["Java Jive",["The Ink Spots"],181]
-  ].map(([title,artists,s])=>({title,artists,durationMs:s*1000}))
+["How Lucky",["Kurt Vile", "John Prine"],203,"4iK3yOQKoby2b9gvCmUwsR","2020-09-24"],
+["Drown - 2015 Remaster",["Son Volt"],199,"6FsTBcizGfeEQeVjgzZ1wi","1995-01-01"],
+["Kool On",["The Roots", "Greg Porn", "Truck North"],228,"5gOwfgfPqQALRUpiQudMNm","2011-12-02"],
+["Take Me to Lake Charles",["Shinyribs"],196,"64qZB8xZ3u2EmH8zSqc7mU","2013-04-16"],
+["I Don't Know - EP Version",["The Sheepdogs"],190,"4A4DPAyhXSTzehnBstdAnt","2011-08-02"],
+["Fish and Whistle",["John Prine"],194,"4qA8M5hJn45rtFyWH5Ixar","1978-01-01"],
+["Save It for Later - 2012 Remaster",["The English Beat"],213,"7jQD3oqlzWzs2ZwKoeTvVX","1982-10-01"],
+["Calvin",["The Jon Spencer Blues Explosion"],182,"5ytqlD1Nwaf1dxvPDUKQeA","1998-10-20"],
+["You Ain't Goin' Nowhere",["Chicken Wire Empire"],185,"6mtSC7K55ZHfxB5Q7e5fYW","2016-02-21"],
+["Piece of Work",["Will Kimbrough"],193,"7jKHYVdLrVONmS7JtNQWXI","2002-09-24"],
+["Roll Um Easy - 2023 Remaster",["Little Feat"],153,"0uKfiA75WdubkPxwthMnva","1973-01-25"],
+["Feelin' Good Again",["Robert Earl Keen"],196,"4NpYrBb5iuDqW1S5qrU3b6","1998-10-27"],
+["Join Ice",["Jesse Welles"],170,"19vif5x0vGqHgc3GEirUqN","2025-10-17"],
+["Amarillo Highway (for Dave Hickey)",["Terry Allen"],240,"3LO6evXvbopPHiVG9AKax7","1979-04-13"],
+["Wave of Mutilation",["Pixies"],123,"51Z2IzJvLCnZaIpBV0IYRr","1989-04-17"],
+["The Underdog",["Spoon"],222,"7cDbqFvw45zdLHGltdb1g9","2017-10-20"],
+["The Galway Girl",["Steve Earle"],185,"1KnilWyiAb1Jwa9QJXZGMN","2000-06-06"],
+["Purple Hat",["SOFI TUKKER"],178,"5Ohh8csVsOnG7CnDrd2E5W","2019-09-06"],
+["Comin' Thru",["Chali 2na"],209,"6xuqSVEcGlOO5ynyfs6YzW","2009-06-23"],
+["Take Me Home Country Roads",["Toots & The Maytals"],197,"4dLpchI5feqkUDr9gwRBir","1984-07-07"],
+["I Can't Complain - Live",["Todd Snider"],213,"3K2XoWLWdcvI0w1YuKI9dd","2003-01-01"],
+["Personality Crisis",["New York Dolls"],221,"4AwKXevZmsTNa3KZVj3rzl","1973-01-01"],
+["clean elvis",["Dan Reeder"],164,"4BD0CGjIgq6NFcZsBB73VY","2004-03-16"],
+["Link Of Chain",["Chris Smither"],290,"16N2lpCidTNYdNq2YZhE98","2000-07-18"],
+["Cape Cod Kwassa Kwassa",["Vampire Weekend"],214,"1vTBBxcBB2Nb3ezQFRrGFO","2008-01-29"],
+["Shadrach, Meshach, and Abednego",["Asylum Street Spankers"],162,"5gaP4K44g0NLnHyx86ZIY1","2009-10-06"],
+["This Too Shall Pass",["OK Go"],188,"0cRWZO0X3gsEgKUeX3NUic","2013-07-25"],
+["Jazz on the Autobahn",["The Felice Brothers"],272,"5IObx9f9zVxTGfzyRQWYSe","2021-09-17"],
+["Shake a Bone",["Son Of Dave"],184,"4GVIoldV96FaVh3CzrkCPN","2010-01-01"],
+["The Nerd Reich",["Jesse Welles"],199,"5TyALTnUdmrmAX1AJQgj99","2026-10-30"],
+["Take Your Mama",["Scissor Sisters"],271,"0LAfANg75hYiV1IAEP3vY6","2004-01-01"],
+["Go It Alone",["Beck"],248,"7zeCIWu37bKFJuem8MTyM1","2005-01-01"],
+["Messenger",["Jeff Darko", "Hektor Red"],210,"4NyuxG5j9CGP88duXHAQUk","2026-09-25"],
+["Rock Your Baby",["Eddie 9V"],202,"0LrsR74qQuD4V7IojAvK0m","2026-09-10"],
+["Still Getting It Done",["Ghost of Vroom", "Mike Doughty", "Andrew Livingston"],162,"6BEsg7mKbgysBJfB8rGEaX","2023-09-01"],
+["Ooh La La",["Goldfrapp"],204,"3E0gVkirGK2ouGHPuOO9cN","2005-08-17"],
+["Booty City",["Black Joe Lewis & The Honeybears"],161,"0f6SrIFK5k9iST0dvxiuSV","2011-01-01"],
+["Frankie's Gun!",["The Felice Brothers"],246,"78i6AUQv9Hp1BAQY6VCaCP","2008-03-04"],
+["Sundown",["Elwood"],239,"4rLqnnxV6tgafUjGi0cwwC","2000-05-15"],
+["Situation",["Johnny Blue Skies"],337,"2Vqk9HmieRuGHnU76ybp1m","2026-06-08"],
+["KD and Lunch Meat",["Boy Golden"],260,"6e9MVekzR3Gku26kBwGezo","2021-07-16"],
+["Jealous Guy - Live at the Bitter End, New York City, 1971",["Donny Hathaway"],318,"5n2WHgGsxaB6jr6NJVMC67","2014-01-01"],
+["Stand by My Girl",["Dan Auerbach"],233,"6LEFWv6jPUy0uoTY9hN6wD","2017-06-02"],
+["Run On For A Long Time",["The Blind Boys Of Alabama"],204,"5ESYdcdPzhdWg78hX5yt6M","2001-04-23"],
+["Cold Dog Soup",["Guy Clark"],215,"4kWB1z8syoDPl12sA4Zux2","1999-01-01"],
+["Spinnin' On This Rock",["Ramsay Midwood"],270,"64iO7bkh3FjGLNYyLWu373","2000-01-01"],
+["People Everyday - Metamorphosis Mix",["Arrested Development"],296,"5thts3213xwSroRd11fv5A","2001-01-01"],
+["NEW DORP. NEW YORK",["SBTRKT", "Ezra Koenig"],180,"2QFHyK2SV2YWyJzu6kpGhk","2014-09-29"],
+["Fire And Brimstone",["Link Wray"],258,"3bEECCaIejir3Amq4iTpCg","1971-01-01"],
+["Lord Have Mercy",["Durand Jones"],241,"73fzDLtCR3jMZrwNZlQXpo","2023-05-05"],
+["Coffee Cold",["Galt MacDermot"],205,"6MN6yRVriszuyAVlyF8ndB","2000-01-01"],
+["The Man Was Burning",["Jake Blount"],155,"5X8hjt33EdQ8KUaUzcTNQv","2022-02-22"],
+["Breakdown - Live",["Spoon"],163,"2VABnLXiKxZhFvDRUSHr3q","2021-03-12"],
+["What About Now",["Scott McMicken and THE EVER-EXPANDING"],201,"0NvOBA86NrzqdWrcuHMGrb","2023-03-31"],
+["Kissing My Love",["Bill Withers"],231,"262qk9k0LTyMXmjH9YT2xU","1972-05-01"],
+["Work It Out",["Jurassic 5", "Dave Matthews Band"],232,"34cB7rNWtWUgohEe8N8HWb","2006-01-01"],
+["One Meat Ball",["Josh White"],181,"2M6fzGnovYgjAm5H5d5FOz","1965-04-23"],
+["Chapstick",["COIN"],193,"2c0NslS6dfGp1LT1iXbqyS","2021-10-08"],
+["Dublin Blues",["Guy Clark"],269,"10izHSVBnT1KCPa8lX4fdF","2001-10-09"],
+["Lodi",["Jeffrey Foucault"],173,"0Kav4oKTCO6YSNZkyiXFC3","2004-07-13"],
+["No Love Today",["Chris Smither"],284,"6KmJfZCd5f4P11vuglbIrN","2000-07-18"],
+["Rent I Pay",["Spoon"],189,"5JhLz2Nel5CUFuKdGlr3VK","2014-08-05"],
+["Looking at the World Through a Windshield",["Son Volt"],188,"4QQMLXM8hYJOLwA8C4qQOG","2005-05-23"],
+["Java Jive",["The Ink Spots"],181,"5XvrvxNu3peNFyaelv8brK","1998-06-16"]
+  ].map(([title,artists,s,id,releaseDate])=>({title,artists,durationMs:s*1000,id,releaseDate}))
 };
 
 /* ---------- Utilities ---------- */
@@ -391,12 +392,12 @@ function renderKPIs(){
   const lens=T.map(t=>t.durationMs);
   const k=[
     ["Tracks",T.length,`${fmtLong(tot)} total`],
-    ["Unique artists",ac.size,`${Math.round(100*[...ac.values()].filter(v=>v===1).length/Math.max(1,ac.size))}% appear once`],
+    ["Unique artists",new Set(T.map(t=>key(t.artists[0]))).size,`lead artists · ${ac.size} incl. featured`],
     ["Unique albums",D.has.album?albums.size:"—",D.has.album?`${(T.length/Math.max(1,albums.size)).toFixed(2)} tracks per album`:"needs CSV import"],
     ["Repeat artists",repeat,top?`Top: ${D.artistNames.get(top[0])} (${top[1]})`:""],
     ["Avg track length",T.length?fmtDur(tot/T.length):"—",lens.length?`median ${fmtDur(median(lens))} · longest ${fmtDur(Math.max(...lens))}`:""],
     ["Collaborations",collab,`${Math.round(100*collab/Math.max(1,T.length))}% of tracks have 2+ artists`],
-    ["Release span",years.length?`${Math.min(...years)}–${String(Math.max(...years)).slice(-2)}`:"—",years.length?`median year ${Math.round(median(years))}`:"needs CSV import"],
+    ["Release span",years.length?`${Math.min(...years)}–${Math.max(...years)}`:"—",years.length?`median year ${Math.round(median(years))}`:"needs CSV import"],
   ];
   if(D.has.pop){const p=T.map(t=>t.popularity).filter(v=>v!=null&&!isNaN(v));k.push(["Avg popularity",p.length?Math.round(p.reduce((a,b)=>a+b,0)/p.length):"—",p.length?`${p.filter(v=>v<30).length} deep cuts (<30)`:""]);}
   if(D.has.added){const a=T.map(t=>t.addedAt).filter(Boolean).sort((x,y)=>x-y);if(a.length){const days=Math.round((a[a.length-1]-a[0])/864e5);k.push(["Built over",days<1?"1 day":days+" days",`${fmtDate(a[0])} → ${fmtDate(a[a.length-1])}`]);}}
@@ -635,7 +636,7 @@ function renderTable(){
   const val={pos:t=>t.pos,title:t=>t.title.toLowerCase(),artist:t=>t.artists[0].toLowerCase(),album:t=>(t.album||"").toLowerCase(),dur:t=>t.durationMs,year:t=>t.year||0,added:t=>t.addedAt?+t.addedAt:0,pop:t=>t.popularity??-1};
   const f=val[sort.col]||val.pos;T=[...T].sort((a,b)=>{const x=f(a),y=f(b);return (x<y?-1:x>y?1:0)*sort.dir;});
   const th=cols.map(([k,l,n])=>`<th data-k="${k}" class="${n?"num":""}">${l}${sort.col===k?(sort.dir>0?" ▲":" ▼"):""}</th>`).join("");
-  const rows=T.map(t=>{const c={pos:t.pos,title:`${esc(baseTitle(t.title))}${t.tag?`<span class="tag">${esc(t.tag)}</span>`:""}`,artist:t.artists.map(a=>`<span style="cursor:pointer" data-a="${esc(key(a))}">${esc(a)}</span>`).join(", "),album:esc(t.album||""),dur:fmtDur(t.durationMs),year:t.year||"",added:fmtDate(t.addedAt),pop:t.popularity??""};
+  const rows=T.map(t=>{const c={pos:t.pos,title:`${t.id?`<a href="https://open.spotify.com/track/${esc(t.id)}" target="_blank" rel="noopener" style="color:inherit">${esc(baseTitle(t.title))}</a>`:esc(baseTitle(t.title))}${t.tag?`<span class="tag">${esc(t.tag)}</span>`:""}`,artist:t.artists.map(a=>`<span style="cursor:pointer" data-a="${esc(key(a))}">${esc(a)}</span>`).join(", "),album:esc(t.album||""),dur:fmtDur(t.durationMs),year:t.year||"",added:fmtDate(t.addedAt),pop:t.popularity??""};
     return `<tr class="${F.artist&&hasArtist(t,F.artist)?"hl":""}">`+cols.map(([k,,n])=>`<td class="${n?"num":""}">${c[k]}</td>`).join("")+"</tr>";}).join("");
   $("#tbl").innerHTML=`<thead><tr>${th}</tr></thead><tbody>${rows||`<tr><td colspan="${cols.length}" class="empty">No matches</td></tr>`}</tbody>`;
   $("#tbl").querySelectorAll("th").forEach(h=>h.onclick=()=>{const k=h.dataset.k;sort=sort.col===k?{col:k,dir:-sort.dir}:{col:k,dir:1};renderTable();});
@@ -644,7 +645,7 @@ function renderTable(){
 }
 
 function renderAll(){renderHeader();renderFilters();renderKPIs();renderTimeline();renderArtists();renderLengths();renderFlow();renderVersions();renderAlbums();renderRich();renderTable();}
-function load(pl){D=normalize(pl);F={artist:null,range:null,q:""};$("#search").value="";tlMode=D.has.added?"added":"play";renderAll();}
+function load(pl){D=normalize(pl);F={artist:null,range:null,q:""};$("#search").value="";tlMode=D.has.added?"added":D.has.release?"release":"play";renderAll();}
 
 /* ---------- CSV import (Exportify and similar) ---------- */
 function parseCSV(text){
@@ -668,7 +669,7 @@ function fromCSV(text,fname){
   const g={pop:num(C.pop),en:num(C.energy),va:num(C.val),da:num(C.dance),te:num(C.tempo)};
   const tracks=rows.slice(1).map(r=>{
     let dur=C.dur>=0?r[C.dur]:"";let ms=parseFloat(dur);if(/:/.test(dur)){const [mm,ss]=dur.split(":");ms=(+mm*60+ +ss)*1000;}else if(ms&&ms<10000)ms*=1000;
-    return {title:r[C.title]||"(untitled)",artists:split(r[C.artist]),album:C.album>=0?r[C.album]:null,releaseDate:C.rel>=0?r[C.rel]:null,durationMs:ms||0,
+    return {id:C.uri>=0?(r[C.uri]||"").split(":").pop():null,title:r[C.title]||"(untitled)",artists:split(r[C.artist]),album:C.album>=0?r[C.album]:null,releaseDate:C.rel>=0?r[C.rel]:null,durationMs:ms||0,
       popularity:g.pop?g.pop(r):null,addedAt:C.added>=0&&r[C.added]?r[C.added]:null,addedBy:C.addedBy>=0?r[C.addedBy]:null,genres:C.genres>=0?split(r[C.genres]):[],
       label:C.label>=0?r[C.label]:null,energy:g.en?g.en(r):null,valence:g.va?g.va(r):null,danceability:g.da?g.da(r):null,tempo:g.te?g.te(r):null};
   }).filter(t=>t.artists.length);
@@ -718,7 +719,7 @@ async function fetchPlaylist(pid,tok){
     try{while(next){const p=await api(next,tok);items.push(...p.items);next=p.next;st.textContent=`Loaded ${items.length} items…`;}}
     catch(e){if(items.length)throw e;next=`/playlists/${pid}/tracks?limit=50`;while(next){const p=await api(next,tok);items.push(...p.items);next=p.next;st.textContent=`Loaded ${items.length} items…`;}}
     const tracks=items.map(it=>{const t=it.track||it.item;if(!t||t.type&&t.type!=="track")return null;
-      return {title:t.name,artists:(t.artists||[]).map(a=>a.name),artistIds:(t.artists||[]).map(a=>a.id),album:t.album&&t.album.name,albumId:t.album&&t.album.id,releaseDate:t.album&&t.album.release_date,
+      return {id:t.id,title:t.name,artists:(t.artists||[]).map(a=>a.name),artistIds:(t.artists||[]).map(a=>a.id),album:t.album&&t.album.name,albumId:t.album&&t.album.id,releaseDate:t.album&&t.album.release_date,
         durationMs:t.duration_ms,popularity:t.popularity,explicit:t.explicit,addedAt:it.added_at,addedBy:it.added_by&&it.added_by.id};}).filter(Boolean);
     // genres (best effort; endpoint may be limited for development-mode apps)
     try{const ids=[...new Set(tracks.flatMap(t=>t.artistIds).filter(Boolean))];const gmap=new Map();
